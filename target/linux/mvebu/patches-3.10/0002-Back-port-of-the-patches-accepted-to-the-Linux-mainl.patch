@@ -1,0 +1,6137 @@
+From d98054fb49e38f8d7442be0dbb12174c482ac01c Mon Sep 17 00:00:00 2001
+From: Seif Mazareeb <seif.mazareeb@gmail.com>
+Date: Thu, 16 Jan 2014 15:16:26 -0800
+Subject: [PATCH 2/3] Back port of the patches accepted to the Linux mainline
+ related to mvebu SoC (Armada XP, and Armada 370)
+ between Linux v3.11, and Linux v3.12. This work mainly:
+ 	* Ground work for sharing the pxa nand driver 	
+  (drivers/mtd/nand/pxa3xx_nand.c) between the PXA
+ family, 	  and the Armada family. 	*
+ Further updates to the mvebu MBus. 	* Work and
+ ground work for enabling MSI on the Armada family. 
+ * some phy / mdio bus initialization related work. 
+ * Device tree binding documentation update.
+
+Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
+---
+ .../devicetree/bindings/arm/armada-370-xp-mpic.txt |    3 +
+ .../devicetree/bindings/bus/mvebu-mbus.txt         |  276 +++++++++++++
+ .../bindings/clock/mvebu-gated-clock.txt           |   14 +-
+ .../devicetree/bindings/net/fixed-link.txt         |   26 ++
+ .../bindings/net/marvell-armada-370-neta.txt       |   24 +-
+ .../devicetree/bindings/pci/mvebu-pci.txt          |  148 +++++--
+ arch/arm/Kconfig                                   |    1 -
+ arch/arm/boot/dts/armada-370-db.dts                |   33 +-
+ arch/arm/boot/dts/armada-370-mirabox.dts           |   37 +-
+ arch/arm/boot/dts/armada-370-rd.dts                |    5 +-
+ arch/arm/boot/dts/armada-370-xp.dtsi               |  137 ++++---
+ arch/arm/boot/dts/armada-370.dtsi                  |  119 +++---
+ arch/arm/boot/dts/armada-xp-db.dts                 |  131 +++---
+ arch/arm/boot/dts/armada-xp-gp.dts                 |  109 ++---
+ arch/arm/boot/dts/armada-xp-mv78230.dtsi           |  227 ++++++-----
+ arch/arm/boot/dts/armada-xp-mv78260.dtsi           |  319 +++++++--------
+ arch/arm/boot/dts/armada-xp-mv78460.dtsi           |  421 +++++++++++---------
+ arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts   |   83 ++--
+ arch/arm/boot/dts/armada-xp.dtsi                   |   15 +-
+ arch/arm/boot/dts/kirkwood-6281.dtsi               |   35 ++
+ arch/arm/boot/dts/kirkwood-6282.dtsi               |   55 +++
+ arch/arm/boot/dts/kirkwood-cloudbox.dts            |    4 +-
+ arch/arm/boot/dts/kirkwood-dns320.dts              |    2 +-
+ arch/arm/boot/dts/kirkwood-dns325.dts              |    2 +-
+ arch/arm/boot/dts/kirkwood-dnskw.dtsi              |    4 +-
+ arch/arm/boot/dts/kirkwood-dockstar.dts            |    4 +-
+ arch/arm/boot/dts/kirkwood-dreamplug.dts           |    4 +-
+ arch/arm/boot/dts/kirkwood-goflexnet.dts           |    4 +-
+ .../arm/boot/dts/kirkwood-guruplug-server-plus.dts |    4 +-
+ arch/arm/boot/dts/kirkwood-ib62x0.dts              |    4 +-
+ arch/arm/boot/dts/kirkwood-iconnect.dts            |   15 +-
+ arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts      |    4 +-
+ arch/arm/boot/dts/kirkwood-is2.dts                 |    2 +-
+ arch/arm/boot/dts/kirkwood-km_kirkwood.dts         |    4 +-
+ arch/arm/boot/dts/kirkwood-lschlv2.dts             |    2 +-
+ arch/arm/boot/dts/kirkwood-lsxhl.dts               |    2 +-
+ arch/arm/boot/dts/kirkwood-lsxl.dtsi               |    4 +-
+ arch/arm/boot/dts/kirkwood-mplcec4.dts             |   15 +-
+ .../boot/dts/kirkwood-netgear_readynas_duo_v2.dts  |   15 +-
+ arch/arm/boot/dts/kirkwood-ns2-common.dtsi         |    4 +-
+ arch/arm/boot/dts/kirkwood-ns2.dts                 |    2 +-
+ arch/arm/boot/dts/kirkwood-ns2lite.dts             |    2 +-
+ arch/arm/boot/dts/kirkwood-ns2max.dts              |    2 +-
+ arch/arm/boot/dts/kirkwood-ns2mini.dts             |    2 +-
+ arch/arm/boot/dts/kirkwood-nsa310.dts              |   43 +-
+ arch/arm/boot/dts/kirkwood-openblocks_a6.dts       |    4 +-
+ arch/arm/boot/dts/kirkwood-topkick.dts             |    4 +-
+ arch/arm/boot/dts/kirkwood-ts219-6281.dts          |   13 +-
+ arch/arm/boot/dts/kirkwood-ts219-6282.dts          |   24 +-
+ arch/arm/boot/dts/kirkwood-ts219.dtsi              |   10 +
+ arch/arm/boot/dts/kirkwood.dtsi                    |   16 +
+ arch/arm/include/asm/mach/pci.h                    |    4 +
+ arch/arm/kernel/bios32.c                           |   16 +
+ arch/arm/mach-kirkwood/board-dt.c                  |    1 +
+ arch/arm/mach-kirkwood/common.c                    |    8 +-
+ arch/arm/mach-mvebu/Kconfig                        |    1 +
+ arch/arm/mach-mvebu/armada-370-xp.c                |   38 +-
+ arch/arm/mach-mvebu/platsmp.c                      |   25 +-
+ arch/ia64/Kconfig                                  |    1 -
+ arch/mips/Kconfig                                  |    2 -
+ arch/mips/include/asm/pci.h                        |    5 -
+ arch/powerpc/Kconfig                               |    1 -
+ arch/powerpc/include/asm/pci.h                     |    5 -
+ arch/s390/Kconfig                                  |    1 -
+ arch/s390/include/asm/pci.h                        |    4 -
+ arch/sparc/Kconfig                                 |    1 -
+ arch/tile/Kconfig                                  |    1 -
+ arch/x86/Kconfig                                   |    1 -
+ arch/x86/include/asm/pci.h                         |   30 --
+ arch/x86/kernel/x86_init.c                         |   24 ++
+ drivers/clk/mvebu/Kconfig                          |    3 +
+ drivers/clk/mvebu/Makefile                         |    1 +
+ drivers/clk/mvebu/clk-corediv.c                    |  223 +++++++++++
+ drivers/clocksource/Kconfig                        |    1 +
+ drivers/clocksource/time-armada-370-xp.c           |    6 +-
+ drivers/irqchip/irq-armada-370-xp.c                |  204 +++++++++-
+ drivers/mtd/nand/nand_base.c                       |   90 +++++
+ drivers/mtd/nand/pxa3xx_nand.c                     |  396 ++++++++++--------
+ drivers/net/ethernet/marvell/mvneta.c              |   18 +-
+ drivers/net/phy/fixed.c                            |    2 +
+ drivers/of/of_mdio.c                               |   36 +-
+ drivers/of/of_pci.c                                |   45 +++
+ drivers/pci/Kconfig                                |    4 -
+ drivers/pci/host/pci-mvebu.c                       |   26 ++
+ drivers/pci/msi.c                                  |   69 ++--
+ drivers/pci/probe.c                                |    1 +
+ include/linux/msi.h                                |   21 +-
+ include/linux/mtd/nand.h                           |   57 ++-
+ include/linux/of_mdio.h                            |   10 +
+ include/linux/of_pci.h                             |   12 +
+ include/linux/pci.h                                |    1 +
+ include/linux/platform_data/mtd-nand-pxa3xx.h      |   13 -
+ include/linux/time-armada-370-xp.h                 |   18 -
+ 93 files changed, 2642 insertions(+), 1223 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/bus/mvebu-mbus.txt
+ create mode 100644 Documentation/devicetree/bindings/net/fixed-link.txt
+ create mode 100644 drivers/clk/mvebu/clk-corediv.c
+ delete mode 100644 include/linux/time-armada-370-xp.h
+
+diff --git a/Documentation/devicetree/bindings/arm/armada-370-xp-mpic.txt b/Documentation/devicetree/bindings/arm/armada-370-xp-mpic.txt
+index 61df564..d74091a 100644
+--- a/Documentation/devicetree/bindings/arm/armada-370-xp-mpic.txt
++++ b/Documentation/devicetree/bindings/arm/armada-370-xp-mpic.txt
+@@ -4,6 +4,8 @@ Marvell Armada 370 and Armada XP Interrupt Controller
+ Required properties:
+ - compatible: Should be "marvell,mpic"
+ - interrupt-controller: Identifies the node as an interrupt controller.
++- msi-controller: Identifies the node as an PCI Message Signaled
++  Interrupt controller.
+ - #interrupt-cells: The number of cells to define the interrupts. Should be 1.
+   The cell is the IRQ number
+ 
+@@ -24,6 +26,7 @@ Example:
+               #address-cells = <1>;
+               #size-cells = <1>;
+               interrupt-controller;
++              msi-controller;
+               reg = <0xd0020a00 0x1d0>,
+                     <0xd0021070 0x58>;
+         };
+diff --git a/Documentation/devicetree/bindings/bus/mvebu-mbus.txt b/Documentation/devicetree/bindings/bus/mvebu-mbus.txt
+new file mode 100644
+index 0000000..7586fb6
+--- /dev/null
++++ b/Documentation/devicetree/bindings/bus/mvebu-mbus.txt
+@@ -0,0 +1,276 @@
++
++* Marvell MBus
++
++Required properties:
++
++- compatible:	 Should be set to one of the following:
++		 marvell,armada370-mbus
++		 marvell,armadaxp-mbus
++		 marvell,armada370-mbus
++		 marvell,armadaxp-mbus
++		 marvell,kirkwood-mbus
++		 marvell,dove-mbus
++		 marvell,orion5x-88f5281-mbus
++		 marvell,orion5x-88f5182-mbus
++		 marvell,orion5x-88f5181-mbus
++		 marvell,orion5x-88f6183-mbus
++		 marvell,mv78xx0-mbus
++
++- address-cells: Must be '2'. The first cell for the MBus ID encoding,
++                 the second cell for the address offset within the window.
++
++- size-cells:    Must be '1'.
++
++- ranges:        Must be set up to provide a proper translation for each child.
++	         See the examples below.
++
++- controller:    Contains a single phandle referring to the MBus controller
++                 node. This allows to specify the node that contains the
++		 registers that control the MBus, which is typically contained
++		 within the internal register window (see below).
++
++Optional properties:
++
++- pcie-mem-aperture:	This optional property contains the aperture for
++			the memory region of the PCIe driver.
++			If it's defined, it must encode the base address and
++			size for the address decoding windows allocated for
++			the PCIe memory region.
++
++- pcie-io-aperture:	Just as explained for the above property, this
++			optional property contains the aperture for the
++			I/O region of the PCIe driver.
++
++* Marvell MBus controller
++
++Required properties:
++
++- compatible:	Should be set to "marvell,mbus-controller".
++
++- reg:          Device's register space.
++		Two entries are expected (see the examples below):
++		the first one controls the devices decoding window and
++		the second one controls the SDRAM decoding window.
++
++Example:
++
++	soc {
++		compatible = "marvell,armada370-mbus", "simple-bus";
++		#address-cells = <2>;
++		#size-cells = <1>;
++		controller = <&mbusc>;
++		pcie-mem-aperture = <0xe0000000 0x8000000>;
++		pcie-io-aperture  = <0xe8000000 0x100000>;
++
++		internal-regs {
++			compatible = "simple-bus";
++
++			mbusc: mbus-controller@20000 {
++				compatible = "marvell,mbus-controller";
++				reg = <0x20000 0x100>, <0x20180 0x20>;
++			};
++
++			/* more children ...*/
++		};
++	};
++
++** MBus address decoding window specification
++
++The MBus children address space is comprised of two cells: the first one for
++the window ID and the second one for the offset within the window.
++In order to allow to describe valid and non-valid window entries, the
++following encoding is used:
++
++  0xSIAA0000 0x00oooooo
++
++Where:
++
++  S = 0x0 for a MBus valid window
++  S = 0xf for a non-valid window (see below)
++
++If S = 0x0, then:
++
++   I = 4-bit window target ID
++  AA = windpw attribute
++
++If S = 0xf, then:
++
++   I = don't care
++   AA = 1 for internal register
++
++Following the above encoding, for each ranges entry for a MBus valid window
++(S = 0x0), an address decoding window is allocated. On the other side,
++entries for translation that do not correspond to valid windows (S = 0xf)
++are skipped.
++
++	soc {
++		compatible = "marvell,armada370-mbus", "simple-bus";
++		#address-cells = <2>;
++		#size-cells = <1>;
++		controller = <&mbusc>;
++
++		ranges = <0xf0010000 0 0 0xd0000000 0x100000
++			  0x01e00000 0 0 0xfff00000 0x100000>;
++
++		bootrom {
++			compatible = "marvell,bootrom";
++			reg = <0x01e00000 0 0x100000>;
++		};
++
++		/* other children */
++		...
++
++		internal-regs {
++			compatible = "simple-bus";
++			ranges = <0 0xf0010000 0 0x100000>;
++
++			mbusc: mbus-controller@20000 {
++				compatible = "marvell,mbus-controller";
++				reg = <0x20000 0x100>, <0x20180 0x20>;
++			};
++
++			/* more children ...*/
++		};
++	};
++
++In the shown example, the translation entry in the 'ranges' property is what
++makes the MBus driver create a static decoding window for the corresponding
++given child device. Note that the binding does not require child nodes to be
++present. Of course, child nodes are needed to probe the devices.
++
++Since each window is identified by its target ID and attribute ID there's
++a special macro that can be use to simplify the translation entries:
++
++#define MBUS_ID(target,attributes) (((target) << 24) | ((attributes) << 16))
++
++Using this macro, the above example would be:
++
++	soc {
++		compatible = "marvell,armada370-mbus", "simple-bus";
++		#address-cells = <2>;
++		#size-cells = <1>;
++		controller = <&mbusc>;
++
++		ranges = < MBUS_ID(0xf0, 0x01) 0 0 0xd0000000 0x100000
++			   MBUS_ID(0x01, 0xe0) 0 0 0xfff00000 0x100000>;
++
++		bootrom {
++			compatible = "marvell,bootrom";
++			reg = <MBUS_ID(0x01, 0xe0) 0 0x100000>;
++		};
++
++		/* other children */
++		...
++
++		internal-regs {
++			compatible = "simple-bus";
++			#address-cells = <1>;
++			#size-cells = <1>;
++			ranges = <0 MBUS_ID(0xf0, 0x01) 0 0x100000>;
++
++			mbusc: mbus-controller@20000 {
++				compatible = "marvell,mbus-controller";
++				reg = <0x20000 0x100>, <0x20180 0x20>;
++			};
++
++			/* other children */
++			...
++		};
++	};
++
++
++** About the window base address
++
++Remember the MBus controller allows a great deal of flexibility for choosing
++the decoding window base address. When planning the device tree layout it's
++possible to choose any address as the base address, provided of course there's
++a region large enough available, and with the required alignment.
++
++Yet in other words: there's nothing preventing us from setting a base address
++of 0xf0000000, or 0xd0000000 for the NOR device shown above, if such region is
++unused.
++
++** Window allocation policy
++
++The mbus-node ranges property defines a set of mbus windows that are expected
++to be set by the operating system and that are guaranteed to be free of overlaps
++with one another or with the system memory ranges.
++
++Each entry in the property refers to exactly one window. If the operating system
++choses to use a different set of mbus windows, it must ensure that any address
++translations performed from downstream devices are adapted accordingly.
++
++The operating system may insert additional mbus windows that do not conflict
++with the ones listed in the ranges, e.g. for mapping PCIe devices.
++As a special case, the internal register window must be set up by the boot
++loader at the address listed in the ranges property, since access to that region
++is needed to set up the other windows.
++
++** Example
++
++See the example below, where a more complete device tree is shown:
++
++	soc {
++		compatible = "marvell,armadaxp-mbus", "simple-bus";
++		controller = <&mbusc>;
++
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xd0000000 0x100000   /* internal-regs */
++			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
++			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x8000000>;
++
++		bootrom {
++			compatible = "marvell,bootrom";
++			reg = <MBUS_ID(0x01, 0x1d) 0 0x100000>;
++		};
++
++		devbus-bootcs {
++			status = "okay";
++			ranges = <0 MBUS_ID(0x01, 0x2f) 0 0x8000000>;
++
++			/* NOR */
++			nor {
++				compatible = "cfi-flash";
++				reg = <0 0x8000000>;
++				bank-width = <2>;
++			};
++		};
++
++		pcie-controller {
++			compatible = "marvell,armada-xp-pcie";
++			status = "okay";
++			device_type = "pci";
++
++			#address-cells = <3>;
++			#size-cells = <2>;
++
++			ranges =
++			       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000   /* Port 0.0 registers */
++				0x82000000 0 0x42000 MBUS_ID(0xf0, 0x01) 0x42000 0 0x00002000   /* Port 2.0 registers */
++				0x82000000 0 0x44000 MBUS_ID(0xf0, 0x01) 0x44000 0 0x00002000   /* Port 0.1 registers */
++				0x82000000 0 0x48000 MBUS_ID(0xf0, 0x01) 0x48000 0 0x00002000   /* Port 0.2 registers */
++				0x82000000 0 0x4c000 MBUS_ID(0xf0, 0x01) 0x4c000 0 0x00002000   /* Port 0.3 registers */
++				0x82000800 0 0xe0000000 MBUS_ID(0x04, 0xe8) 0xe0000000 0 0x08000000 /* Port 0.0 MEM */
++				0x81000800 0 0          MBUS_ID(0x04, 0xe0) 0xe8000000 0 0x00100000 /* Port 0.0 IO */>;
++
++
++			pcie@1,0 {
++				/* Port 0, Lane 0 */
++				status = "okay";
++			};
++		};
++
++		internal-regs {
++			compatible = "simple-bus";
++			#address-cells = <1>;
++			#size-cells = <1>;
++			ranges = <0 MBUS_ID(0xf0, 0x01) 0 0x100000>;
++
++			mbusc: mbus-controller@20000 {
++				reg = <0x20000 0x100>, <0x20180 0x20>;
++			};
++
++			interrupt-controller@20000 {
++			      reg = <0x20a00 0x2d0>, <0x21070 0x58>;
++			};
++		};
++	};
+diff --git a/Documentation/devicetree/bindings/clock/mvebu-gated-clock.txt b/Documentation/devicetree/bindings/clock/mvebu-gated-clock.txt
+index cffc93d..fc2910f 100644
+--- a/Documentation/devicetree/bindings/clock/mvebu-gated-clock.txt
++++ b/Documentation/devicetree/bindings/clock/mvebu-gated-clock.txt
+@@ -1,10 +1,10 @@
+-* Gated Clock bindings for Marvell Orion SoCs
++* Gated Clock bindings for Marvell EBU SoCs
+ 
+-Marvell Dove and Kirkwood allow some peripheral clocks to be gated to save
+-some power. The clock consumer should specify the desired clock by having
+-the clock ID in its "clocks" phandle cell. The clock ID is directly mapped to
+-the corresponding clock gating control bit in HW to ease manual clock lookup
+-in datasheet.
++Marvell Armada 370/XP, Dove and Kirkwood allow some peripheral clocks to be
++gated to save some power. The clock consumer should specify the desired clock
++by having the clock ID in its "clocks" phandle cell. The clock ID is directly
++mapped to the corresponding clock gating control bit in HW to ease manual clock
++lookup in datasheet.
+ 
+ The following is a list of provided IDs for Armada 370:
+ ID	Clock	Peripheral
+@@ -94,6 +94,8 @@ ID	Clock	Peripheral
+ 
+ Required properties:
+ - compatible : shall be one of the following:
++	"marvell,armada-370-gating-clock" - for Armada 370 SoC clock gating
++	"marvell,armada-xp-gating-clock" - for Armada XP SoC clock gating
+ 	"marvell,dove-gating-clock" - for Dove SoC clock gating
+ 	"marvell,kirkwood-gating-clock" - for Kirkwood SoC clock gating
+ - reg : shall be the register address of the Clock Gating Control register
+diff --git a/Documentation/devicetree/bindings/net/fixed-link.txt b/Documentation/devicetree/bindings/net/fixed-link.txt
+new file mode 100644
+index 0000000..25a009a
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/fixed-link.txt
+@@ -0,0 +1,26 @@
++Fixed link Device Tree binding
++------------------------------
++
++Some Ethernet MACs have a "fixed link", and are not connected to a
++normal MDIO-managed PHY device. For those situations, a Device Tree
++binding allows to describe a "fixed link".
++
++Such a fixed link situation is described within an Ethernet device
++Device Tree node using a 'fixed-link' property, composed of 5
++elements:
++
++ 1. A fake PHY ID, which must be unique accross all fixed-link PHYs in
++    the system.
++ 2. The duplex (1 for full-duplex, 0 for half-duplex)
++ 3. The speed (10, 100, 1000)
++ 4. The pause setting (1 for enabled, 0 for disabled)
++ 5. The asym pause setting (1 for enabled, 0 for disabled)
++
++Example:
++
++ethernet@0 {
++	...
++	fixed-link = <1 1 1000 0 0>;
++	...
++};
++
+diff --git a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+index 859a6fa..31e61c0 100644
+--- a/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
++++ b/Documentation/devicetree/bindings/net/marvell-armada-370-neta.txt
+@@ -4,13 +4,21 @@ Required properties:
+ - compatible: should be "marvell,armada-370-neta".
+ - reg: address and length of the register set for the device.
+ - interrupts: interrupt for the device
+-- phy: A phandle to a phy node defining the PHY address (as the reg
+-  property, a single integer).
+ - phy-mode: The interface between the SoC and the PHY (a string that
+   of_get_phy_mode() can understand)
+ - clocks: a pointer to the reference clock for this device.
+ 
+-Example:
++Optional properties:
++
++- phy: A phandle to a phy node defining the PHY address (as the reg
++  property, a single integer). Note: if this property isn't present,
++  then fixed link is assumed, and the 'fixed-link' property is
++  mandatory.
++- fixed-link: A 5 elements array that describe a fixed link, see
++  fixed-link.txt for details. Note: if a 'phy' property is present,
++  this 'fixed-link' property is ignored.
++
++Examples:
+ 
+ ethernet@d0070000 {
+ 	compatible = "marvell,armada-370-neta";
+@@ -21,3 +29,13 @@ ethernet@d0070000 {
+ 	phy = <&phy0>;
+ 	phy-mode = "rgmii-id";
+ };
++
++ethernet@d0070000 {
++	compatible = "marvell,armada-370-neta";
++	reg = <0xd0070000 0x2500>;
++	interrupts = <8>;
++	clocks = <&gate_clk 4>;
++	status = "okay";
++	fixed-link = <1 1 1000 0 0>;
++	phy-mode = "rgmii-id";
++};
+diff --git a/Documentation/devicetree/bindings/pci/mvebu-pci.txt b/Documentation/devicetree/bindings/pci/mvebu-pci.txt
+index eb69d92..9355a85 100644
+--- a/Documentation/devicetree/bindings/pci/mvebu-pci.txt
++++ b/Documentation/devicetree/bindings/pci/mvebu-pci.txt
+@@ -1,6 +1,7 @@
+ * Marvell EBU PCIe interfaces
+ 
+ Mandatory properties:
++
+ - compatible: one of the following values:
+     marvell,armada-370-pcie
+     marvell,armada-xp-pcie
+@@ -9,11 +10,51 @@ Mandatory properties:
+ - #interrupt-cells, set to <1>
+ - bus-range: PCI bus numbers covered
+ - device_type, set to "pci"
+-- ranges: ranges for the PCI memory and I/O regions, as well as the
+-  MMIO registers to control the PCIe interfaces.
++- ranges: ranges describing the MMIO registers to control the PCIe
++  interfaces, and ranges describing the MBus windows needed to access
++  the memory and I/O regions of each PCIe interface.
++
++- msi-parent: Link to the hardware entity that serves as the Message
++  Signaled Interrupt controller for this PCI controller.
++The ranges describing the MMIO registers have the following layout:
++
++    0x82000000 0 r MBUS_ID(0xf0, 0x01) r 0 s
++
++where:
++
++  * r is a 32-bits value that gives the offset of the MMIO
++  registers of this PCIe interface, from the base of the internal
++  registers.
++
++  * s is a 32-bits value that give the size of this MMIO
++  registers area. This range entry translates the '0x82000000 0 r' PCI
++  address into the 'MBUS_ID(0xf0, 0x01) r' CPU address, which is part
++  of the internal register window (as identified by MBUS_ID(0xf0,
++  0x01)).
++
++The ranges describing the MBus windows have the following layout:
++
++    0x8t000000 s 0     MBUS_ID(w, a) 0 1 0
++
++where:
++
++   * t is the type of the MBus window (as defined by the standard PCI DT
++   bindings), 1 for I/O and 2 for memory.
+ 
+-In addition, the Device Tree node must have sub-nodes describing each
++   * s is the PCI slot that corresponds to this PCIe interface
++
++   * w is the 'target ID' value for the MBus window
++
++   * a the 'attribute' value for the MBus window.
++
++Since the location and size of the different MBus windows is not fixed in
++hardware, and only determined in runtime, those ranges cover the full first
++4 GB of the physical address space, and do not translate into a valid CPU
++address.
++
++In addition, the device tree node must have sub-nodes describing each
+ PCIe interface, having the following mandatory properties:
++
+ - reg: used only for interrupt mapping, so only the first four bytes
+   are used to refer to the correct bus number and device number.
+ - assigned-addresses: reference to the MMIO registers used to control
+@@ -25,7 +66,8 @@ PCIe interface, having the following mandatory properties:
+ - #address-cells, set to <3>
+ - #size-cells, set to <2>
+ - #interrupt-cells, set to <1>
+-- ranges, empty property.
++- ranges, translating the MBus windows ranges of the parent node into
++  standard PCI addresses.
+ - interrupt-map-mask and interrupt-map, standard PCI properties to
+   define the mapping of the PCIe interface to interrupt numbers.
+ 
+@@ -45,28 +87,52 @@ pcie-controller {
+ 	#size-cells = <2>;
+ 
+ 	bus-range = <0x00 0xff>;
++	msi-parent = <&mpic>;
+ 
+-	ranges = <0x82000000 0 0xd0040000 0xd0040000 0 0x00002000   /* Port 0.0 registers */
+-		  0x82000000 0 0xd0042000 0xd0042000 0 0x00002000   /* Port 2.0 registers */
+-		  0x82000000 0 0xd0044000 0xd0044000 0 0x00002000   /* Port 0.1 registers */
+-		  0x82000000 0 0xd0048000 0xd0048000 0 0x00002000   /* Port 0.2 registers */
+-		  0x82000000 0 0xd004c000 0xd004c000 0 0x00002000   /* Port 0.3 registers */
+-		  0x82000000 0 0xd0080000 0xd0080000 0 0x00002000   /* Port 1.0 registers */
+-		  0x82000000 0 0xd0082000 0xd0082000 0 0x00002000   /* Port 3.0 registers */
+-		  0x82000000 0 0xd0084000 0xd0084000 0 0x00002000   /* Port 1.1 registers */
+-		  0x82000000 0 0xd0088000 0xd0088000 0 0x00002000   /* Port 1.2 registers */
+-		  0x82000000 0 0xd008c000 0xd008c000 0 0x00002000   /* Port 1.3 registers */
+-		  0x82000000 0 0xe0000000 0xe0000000 0 0x08000000   /* non-prefetchable memory */
+-		  0x81000000 0 0	  0xe8000000 0 0x00100000>; /* downstream I/O */
++	ranges =
++	       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000	/* Port 0.0 registers */
++		0x82000000 0 0x42000 MBUS_ID(0xf0, 0x01) 0x42000 0 0x00002000	/* Port 2.0 registers */
++		0x82000000 0 0x44000 MBUS_ID(0xf0, 0x01) 0x44000 0 0x00002000	/* Port 0.1 registers */
++		0x82000000 0 0x48000 MBUS_ID(0xf0, 0x01) 0x48000 0 0x00002000	/* Port 0.2 registers */
++		0x82000000 0 0x4c000 MBUS_ID(0xf0, 0x01) 0x4c000 0 0x00002000	/* Port 0.3 registers */
++		0x82000000 0 0x80000 MBUS_ID(0xf0, 0x01) 0x80000 0 0x00002000	/* Port 1.0 registers */
++		0x82000000 0 0x82000 MBUS_ID(0xf0, 0x01) 0x82000 0 0x00002000	/* Port 3.0 registers */
++		0x82000000 0 0x84000 MBUS_ID(0xf0, 0x01) 0x84000 0 0x00002000	/* Port 1.1 registers */
++		0x82000000 0 0x88000 MBUS_ID(0xf0, 0x01) 0x88000 0 0x00002000	/* Port 1.2 registers */
++		0x82000000 0 0x8c000 MBUS_ID(0xf0, 0x01) 0x8c000 0 0x00002000	/* Port 1.3 registers */
++		0x82000000 0x1 0     MBUS_ID(0x04, 0xe8) 0 1 0 /* Port 0.0 MEM */
++		0x81000000 0x1 0     MBUS_ID(0x04, 0xe0) 0 1 0 /* Port 0.0 IO  */
++		0x82000000 0x2 0     MBUS_ID(0x04, 0xd8) 0 1 0 /* Port 0.1 MEM */
++		0x81000000 0x2 0     MBUS_ID(0x04, 0xd0) 0 1 0 /* Port 0.1 IO  */
++		0x82000000 0x3 0     MBUS_ID(0x04, 0xb8) 0 1 0 /* Port 0.2 MEM */
++		0x81000000 0x3 0     MBUS_ID(0x04, 0xb0) 0 1 0 /* Port 0.2 IO  */
++		0x82000000 0x4 0     MBUS_ID(0x04, 0x78) 0 1 0 /* Port 0.3 MEM */
++		0x81000000 0x4 0     MBUS_ID(0x04, 0x70) 0 1 0 /* Port 0.3 IO  */
++
++		0x82000000 0x5 0     MBUS_ID(0x08, 0xe8) 0 1 0 /* Port 1.0 MEM */
++		0x81000000 0x5 0     MBUS_ID(0x08, 0xe0) 0 1 0 /* Port 1.0 IO  */
++		0x82000000 0x6 0     MBUS_ID(0x08, 0xd8) 0 1 0 /* Port 1.1 MEM */
++		0x81000000 0x6 0     MBUS_ID(0x08, 0xd0) 0 1 0 /* Port 1.1 IO  */
++		0x82000000 0x7 0     MBUS_ID(0x08, 0xb8) 0 1 0 /* Port 1.2 MEM */
++		0x81000000 0x7 0     MBUS_ID(0x08, 0xb0) 0 1 0 /* Port 1.2 IO  */
++		0x82000000 0x8 0     MBUS_ID(0x08, 0x78) 0 1 0 /* Port 1.3 MEM */
++		0x81000000 0x8 0     MBUS_ID(0x08, 0x70) 0 1 0 /* Port 1.3 IO  */
++
++		0x82000000 0x9 0     MBUS_ID(0x04, 0xf8) 0 1 0 /* Port 2.0 MEM */
++		0x81000000 0x9 0     MBUS_ID(0x04, 0xf0) 0 1 0 /* Port 2.0 IO  */
++
++		0x82000000 0xa 0     MBUS_ID(0x08, 0xf8) 0 1 0 /* Port 3.0 MEM */
++		0x81000000 0xa 0     MBUS_ID(0x08, 0xf0) 0 1 0 /* Port 3.0 IO  */>;
+ 
+ 	pcie@1,0 {
+ 		device_type = "pci";
+-		assigned-addresses = <0x82000800 0 0xd0040000 0 0x2000>;
++		assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
+ 		reg = <0x0800 0 0 0 0>;
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		#interrupt-cells = <1>;
+-		ranges;
++		ranges = <0x82000000 0 0 0x82000000 0x1 0 1 0
++			  0x81000000 0 0 0x81000000 0x1 0 1 0>;
+ 		interrupt-map-mask = <0 0 0 0>;
+ 		interrupt-map = <0 0 0 0 &mpic 58>;
+ 		marvell,pcie-port = <0>;
+@@ -77,12 +143,13 @@ pcie-controller {
+ 
+ 	pcie@2,0 {
+ 		device_type = "pci";
+-		assigned-addresses = <0x82001000 0 0xd0044000 0 0x2000>;
++		assigned-addresses = <0x82001000 0 0x44000 0 0x2000>;
+ 		reg = <0x1000 0 0 0 0>;
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		#interrupt-cells = <1>;
+-		ranges;
++		ranges = <0x82000000 0 0 0x82000000 0x2 0 1 0
++			  0x81000000 0 0 0x81000000 0x2 0 1 0>;
+ 		interrupt-map-mask = <0 0 0 0>;
+ 		interrupt-map = <0 0 0 0 &mpic 59>;
+ 		marvell,pcie-port = <0>;
+@@ -93,12 +160,13 @@ pcie-controller {
+ 
+ 	pcie@3,0 {
+ 		device_type = "pci";
+-		assigned-addresses = <0x82001800 0 0xd0048000 0 0x2000>;
++		assigned-addresses = <0x82001800 0 0x48000 0 0x2000>;
+ 		reg = <0x1800 0 0 0 0>;
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		#interrupt-cells = <1>;
+-		ranges;
++		ranges = <0x82000000 0 0 0x82000000 0x3 0 1 0
++			  0x81000000 0 0 0x81000000 0x3 0 1 0>;
+ 		interrupt-map-mask = <0 0 0 0>;
+ 		interrupt-map = <0 0 0 0 &mpic 60>;
+ 		marvell,pcie-port = <0>;
+@@ -109,12 +177,13 @@ pcie-controller {
+ 
+ 	pcie@4,0 {
+ 		device_type = "pci";
+-		assigned-addresses = <0x82002000 0 0xd004c000 0 0x2000>;
++		assigned-addresses = <0x82002000 0 0x4c000 0 0x2000>;
+ 		reg = <0x2000 0 0 0 0>;
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		#interrupt-cells = <1>;
+-		ranges;
++		ranges = <0x82000000 0 0 0x82000000 0x4 0 1 0
++			  0x81000000 0 0 0x81000000 0x4 0 1 0>;
+ 		interrupt-map-mask = <0 0 0 0>;
+ 		interrupt-map = <0 0 0 0 &mpic 61>;
+ 		marvell,pcie-port = <0>;
+@@ -125,12 +194,13 @@ pcie-controller {
+ 
+ 	pcie@5,0 {
+ 		device_type = "pci";
+-		assigned-addresses = <0x82002800 0 0xd0080000 0 0x2000>;
++		assigned-addresses = <0x82002800 0 0x80000 0 0x2000>;
+ 		reg = <0x2800 0 0 0 0>;
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		#interrupt-cells = <1>;
+-		ranges;
++		ranges = <0x82000000 0 0 0x82000000 0x5 0 1 0
++			  0x81000000 0 0 0x81000000 0x5 0 1 0>;
+ 		interrupt-map-mask = <0 0 0 0>;
+ 		interrupt-map = <0 0 0 0 &mpic 62>;
+ 		marvell,pcie-port = <1>;
+@@ -141,12 +211,13 @@ pcie-controller {
+ 
+ 	pcie@6,0 {
+ 		device_type = "pci";
+-		assigned-addresses = <0x82003000 0 0xd0084000 0 0x2000>;
++		assigned-addresses = <0x82003000 0 0x84000 0 0x2000>;
+ 		reg = <0x3000 0 0 0 0>;
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		#interrupt-cells = <1>;
+-		ranges;
++		ranges = <0x82000000 0 0 0x82000000 0x6 0 1 0
++			  0x81000000 0 0 0x81000000 0x6 0 1 0>;
+ 		interrupt-map-mask = <0 0 0 0>;
+ 		interrupt-map = <0 0 0 0 &mpic 63>;
+ 		marvell,pcie-port = <1>;
+@@ -157,12 +228,13 @@ pcie-controller {
+ 
+ 	pcie@7,0 {
+ 		device_type = "pci";
+-		assigned-addresses = <0x82003800 0 0xd0088000 0 0x2000>;
++		assigned-addresses = <0x82003800 0 0x88000 0 0x2000>;
+ 		reg = <0x3800 0 0 0 0>;
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		#interrupt-cells = <1>;
+-		ranges;
++		ranges = <0x82000000 0 0 0x82000000 0x7 0 1 0
++			  0x81000000 0 0 0x81000000 0x7 0 1 0>;
+ 		interrupt-map-mask = <0 0 0 0>;
+ 		interrupt-map = <0 0 0 0 &mpic 64>;
+ 		marvell,pcie-port = <1>;
+@@ -173,12 +245,13 @@ pcie-controller {
+ 
+ 	pcie@8,0 {
+ 		device_type = "pci";
+-		assigned-addresses = <0x82004000 0 0xd008c000 0 0x2000>;
++		assigned-addresses = <0x82004000 0 0x8c000 0 0x2000>;
+ 		reg = <0x4000 0 0 0 0>;
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		#interrupt-cells = <1>;
+-		ranges;
++		ranges = <0x82000000 0 0 0x82000000 0x8 0 1 0
++			  0x81000000 0 0 0x81000000 0x8 0 1 0>;
+ 		interrupt-map-mask = <0 0 0 0>;
+ 		interrupt-map = <0 0 0 0 &mpic 65>;
+ 		marvell,pcie-port = <1>;
+@@ -186,14 +259,16 @@ pcie-controller {
+ 		clocks = <&gateclk 12>;
+ 		status = "disabled";
+ 	};
++
+ 	pcie@9,0 {
+ 		device_type = "pci";
+-		assigned-addresses = <0x82004800 0 0xd0042000 0 0x2000>;
++		assigned-addresses = <0x82004800 0 0x42000 0 0x2000>;
+ 		reg = <0x4800 0 0 0 0>;
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		#interrupt-cells = <1>;
+-		ranges;
++		ranges = <0x82000000 0 0 0x82000000 0x9 0 1 0
++			  0x81000000 0 0 0x81000000 0x9 0 1 0>;
+ 		interrupt-map-mask = <0 0 0 0>;
+ 		interrupt-map = <0 0 0 0 &mpic 99>;
+ 		marvell,pcie-port = <2>;
+@@ -204,12 +279,13 @@ pcie-controller {
+ 
+ 	pcie@10,0 {
+ 		device_type = "pci";
+-		assigned-addresses = <0x82005000 0 0xd0082000 0 0x2000>;
++		assigned-addresses = <0x82005000 0 0x82000 0 0x2000>;
+ 		reg = <0x5000 0 0 0 0>;
+ 		#address-cells = <3>;
+ 		#size-cells = <2>;
+ 		#interrupt-cells = <1>;
+-		ranges;
++		ranges = <0x82000000 0 0 0x82000000 0xa 0 1 0
++			  0x81000000 0 0 0x81000000 0xa 0 1 0>;
+ 		interrupt-map-mask = <0 0 0 0>;
+ 		interrupt-map = <0 0 0 0 &mpic 103>;
+ 		marvell,pcie-port = <3>;
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 18a9f5e..807a7af 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -435,7 +435,6 @@ config ARCH_NETX
+ config ARCH_IOP13XX
+ 	bool "IOP13xx-based"
+ 	depends on MMU
+-	select ARCH_SUPPORTS_MSI
+ 	select CPU_XSC3
+ 	select NEED_MACH_MEMORY_H
+ 	select NEED_RET_TO_USER
+diff --git a/arch/arm/boot/dts/armada-370-db.dts b/arch/arm/boot/dts/armada-370-db.dts
+index beee169..08a56bc 100644
+--- a/arch/arm/boot/dts/armada-370-db.dts
++++ b/arch/arm/boot/dts/armada-370-db.dts
+@@ -14,7 +14,7 @@
+  */
+ 
+ /dts-v1/;
+-/include/ "armada-370.dtsi"
++#include "armada-370.dtsi"
+ 
+ / {
+ 	model = "Marvell Armada 370 Evaluation Board";
+@@ -30,6 +30,9 @@
+ 	};
+ 
+ 	soc {
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0xd0000000 0x100000
++			  MBUS_ID(0x01, 0xe0) 0 0xfff00000 0x100000>;
++
+ 		internal-regs {
+ 			serial@12000 {
+ 				clock-frequency = <200000000>;
+@@ -96,22 +99,22 @@
+ 					spi-max-frequency = <50000000>;
+ 				};
+ 			};
++		};
+ 
+-			pcie-controller {
++		pcie-controller {
++			status = "okay";
++			/*
++			 * The two PCIe units are accessible through
++			 * both standard PCIe slots and mini-PCIe
++			 * slots on the board.
++			 */
++			pcie@1,0 {
++				/* Port 0, Lane 0 */
++				status = "okay";
++			};
++			pcie@2,0 {
++				/* Port 1, Lane 0 */
+ 				status = "okay";
+-				/*
+-				 * The two PCIe units are accessible through
+-				 * both standard PCIe slots and mini-PCIe
+-				 * slots on the board.
+-				 */
+-				pcie@1,0 {
+-					/* Port 0, Lane 0 */
+-					status = "okay";
+-				};
+-				pcie@2,0 {
+-					/* Port 1, Lane 0 */
+-					status = "okay";
+-				};
+ 			};
+ 		};
+ 	};
+diff --git a/arch/arm/boot/dts/armada-370-mirabox.dts b/arch/arm/boot/dts/armada-370-mirabox.dts
+index 45b1077..2471d9d 100644
+--- a/arch/arm/boot/dts/armada-370-mirabox.dts
++++ b/arch/arm/boot/dts/armada-370-mirabox.dts
+@@ -9,7 +9,7 @@
+  */
+ 
+ /dts-v1/;
+-/include/ "armada-370.dtsi"
++#include "armada-370.dtsi"
+ 
+ / {
+ 	model = "Globalscale Mirabox";
+@@ -25,6 +25,25 @@
+ 	};
+ 
+ 	soc {
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0xd0000000 0x100000
++			  MBUS_ID(0x01, 0xe0) 0 0xfff00000 0x100000>;
++
++		pcie-controller {
++			status = "okay";
++
++			/* Internal mini-PCIe connector */
++			pcie@1,0 {
++				/* Port 0, Lane 0 */
++				status = "okay";
++			};
++
++			/* Connected on the PCB to a USB 3.0 XHCI controller */
++			pcie@2,0 {
++				/* Port 1, Lane 0 */
++				status = "okay";
++			};
++		};
++
+ 		internal-regs {
+ 			serial@12000 {
+ 				clock-frequency = <200000000>;
+@@ -120,22 +139,6 @@
+ 					reg = <0x25>;
+ 				};
+ 			};
+-
+-			pcie-controller {
+-				status = "okay";
+-
+-				/* Internal mini-PCIe connector */
+-				pcie@1,0 {
+-					/* Port 0, Lane 0 */
+-					status = "okay";
+-				};
+-
+-				/* Connected on the PCB to a USB 3.0 XHCI controller */
+-				pcie@2,0 {
+-					/* Port 1, Lane 0 */
+-					status = "okay";
+-				};
+-			};
+ 		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/armada-370-rd.dts b/arch/arm/boot/dts/armada-370-rd.dts
+index a3a2fed..0b3acf3 100644
+--- a/arch/arm/boot/dts/armada-370-rd.dts
++++ b/arch/arm/boot/dts/armada-370-rd.dts
+@@ -12,7 +12,7 @@
+  */
+ 
+ /dts-v1/;
+-/include/ "armada-370.dtsi"
++#include "armada-370.dtsi"
+ 
+ / {
+ 	model = "Marvell Armada 370 Reference Design";
+@@ -28,6 +28,9 @@
+ 	};
+ 
+ 	soc {
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0xd0000000 0x100000
++			  MBUS_ID(0x01, 0xe0) 0 0xfff00000 0x100000>;
++
+ 		internal-regs {
+ 			serial@12000 {
+ 				clock-frequency = <200000000>;
+diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
+index f9a4c72..e9303b7 100644
+--- a/arch/arm/boot/dts/armada-370-xp.dtsi
++++ b/arch/arm/boot/dts/armada-370-xp.dtsi
+@@ -18,10 +18,17 @@
+ 
+ /include/ "skeleton64.dtsi"
+ 
++#define MBUS_ID(target,attributes) (((target) << 24) | ((attributes) << 16))
++
+ / {
+ 	model = "Marvell Armada 370 and XP SoC";
+ 	compatible = "marvell,armada-370-xp";
+ 
++	aliases {
++		eth0 = &eth0;
++		eth1 = &eth1;
++	};
++
+ 	cpus {
+ 		cpu@0 {
+ 			compatible = "marvell,sheeva-v7";
+@@ -29,24 +36,80 @@
+ 	};
+ 
+ 	soc {
+-		#address-cells = <1>;
++		#address-cells = <2>;
+ 		#size-cells = <1>;
+-		compatible = "simple-bus";
++		controller = <&mbusc>;
+ 		interrupt-parent = <&mpic>;
+-		ranges = <0          0 0xd0000000 0x0100000 /* internal registers */
+-			  0xe0000000 0 0xe0000000 0x8100000 /* PCIe */>;
++		pcie-mem-aperture = <0xe0000000 0x8000000>;
++		pcie-io-aperture  = <0xe8000000 0x100000>;
++
++		devbus-bootcs {
++			compatible = "marvell,mvebu-devbus";
++			reg = <MBUS_ID(0xf0, 0x01) 0x10400 0x8>;
++			ranges = <0 MBUS_ID(0x01, 0x2f) 0 0xffffffff>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			clocks = <&coreclk 0>;
++			status = "disabled";
++		};
++
++		devbus-cs0 {
++			compatible = "marvell,mvebu-devbus";
++			reg = <MBUS_ID(0xf0, 0x01) 0x10408 0x8>;
++			ranges = <0 MBUS_ID(0x01, 0x3e) 0 0xffffffff>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			clocks = <&coreclk 0>;
++			status = "disabled";
++		};
++
++		devbus-cs1 {
++			compatible = "marvell,mvebu-devbus";
++			reg = <MBUS_ID(0xf0, 0x01) 0x10410 0x8>;
++			ranges = <0 MBUS_ID(0x01, 0x3d) 0 0xffffffff>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			clocks = <&coreclk 0>;
++			status = "disabled";
++		};
++
++		devbus-cs2 {
++			compatible = "marvell,mvebu-devbus";
++			reg = <MBUS_ID(0xf0, 0x01) 0x10418 0x8>;
++			ranges = <0 MBUS_ID(0x01, 0x3b) 0 0xffffffff>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			clocks = <&coreclk 0>;
++			status = "disabled";
++		};
++
++		devbus-cs3 {
++			compatible = "marvell,mvebu-devbus";
++			reg = <MBUS_ID(0xf0, 0x01) 0x10420 0x8>;
++			ranges = <0 MBUS_ID(0x01, 0x37) 0 0xffffffff>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			clocks = <&coreclk 0>;
++			status = "disabled";
++		};
+ 
+ 		internal-regs {
+ 			compatible = "simple-bus";
+ 			#address-cells = <1>;
+ 			#size-cells = <1>;
+-			ranges;
++			ranges = <0 MBUS_ID(0xf0, 0x01) 0 0x100000>;
++
++			mbusc: mbus-controller@20000 {
++				compatible = "marvell,mbus-controller";
++				reg = <0x20000 0x100>, <0x20180 0x20>;
++			};
+ 
+ 			mpic: interrupt-controller@20000 {
+ 				compatible = "marvell,mpic";
+ 				#interrupt-cells = <1>;
+ 				#size-cells = <1>;
+ 				interrupt-controller;
++				msi-controller;
+ 			};
+ 
+ 			coherency-fabric@20200 {
+@@ -71,6 +134,14 @@
+ 				status = "disabled";
+ 			};
+ 
++			coredivclk: corediv-clock@18740 {
++				compatible = "marvell,armada-370-corediv-clock";
++				reg = <0x18740 0xc>;
++				#clock-cells = <1>;
++				clocks = <&mainpll>;
++				clock-output-names = "nand";
++			};
++
+ 			timer@20300 {
+ 				compatible = "marvell,armada-370-xp-timer";
+ 				reg = <0x20300 0x30>, <0x21040 0x30>;
+@@ -94,7 +165,7 @@
+ 				reg = <0x72004 0x4>;
+ 			};
+ 
+-			ethernet@70000 {
++			eth0: ethernet@70000 {
+ 				compatible = "marvell,armada-370-neta";
+ 				reg = <0x70000 0x4000>;
+ 				interrupts = <8>;
+@@ -102,7 +173,7 @@
+ 				status = "disabled";
+ 			};
+ 
+-			ethernet@74000 {
++			eth1: ethernet@74000 {
+ 				compatible = "marvell,armada-370-neta";
+ 				reg = <0x74000 0x4000>;
+ 				interrupts = <10>;
+@@ -186,50 +257,24 @@
+ 				status = "disabled";
+ 			};
+ 
+-			devbus-bootcs@10400 {
+-				compatible = "marvell,mvebu-devbus";
+-				reg = <0x10400 0x8>;
++			nand@d0000 {
++				compatible = "marvell,armada370-nand";
++				reg = <0xd0000 0x54>;
+ 				#address-cells = <1>;
+ 				#size-cells = <1>;
+-				clocks = <&coreclk 0>;
+-				status = "disabled";
+-			};
+-
+-			devbus-cs0@10408 {
+-				compatible = "marvell,mvebu-devbus";
+-				reg = <0x10408 0x8>;
+-				#address-cells = <1>;
+-				#size-cells = <1>;
+-				clocks = <&coreclk 0>;
+-				status = "disabled";
+-			};
+-
+-			devbus-cs1@10410 {
+-				compatible = "marvell,mvebu-devbus";
+-				reg = <0x10410 0x8>;
+-				#address-cells = <1>;
+-				#size-cells = <1>;
+-				clocks = <&coreclk 0>;
+-				status = "disabled";
+-			};
+-
+-			devbus-cs2@10418 {
+-				compatible = "marvell,mvebu-devbus";
+-				reg = <0x10418 0x8>;
+-				#address-cells = <1>;
+-				#size-cells = <1>;
+-				clocks = <&coreclk 0>;
++				interrupts = <113>;
++				clocks = <&coredivclk 0>;
+ 				status = "disabled";
+ 			};
++		};
++	};
+ 
+-			devbus-cs3@10420 {
+-				compatible = "marvell,mvebu-devbus";
+-				reg = <0x10420 0x8>;
+-				#address-cells = <1>;
+-				#size-cells = <1>;
+-				clocks = <&coreclk 0>;
+-				status = "disabled";
+-			};
++	clocks {
++		/* 2 GHz fixed main PLL */
++		mainpll: mainpll {
++			compatible = "fixed-clock";
++			#clock-cells = <0>;
++			clock-frequency = <2000000000>;
+ 		};
+ 	};
+  };
+diff --git a/arch/arm/boot/dts/armada-370.dtsi b/arch/arm/boot/dts/armada-370.dtsi
+index fa3dfc6..17d30fc 100644
+--- a/arch/arm/boot/dts/armada-370.dtsi
++++ b/arch/arm/boot/dts/armada-370.dtsi
+@@ -15,7 +15,7 @@
+  * common to all Armada SoCs.
+  */
+ 
+-/include/ "armada-370-xp.dtsi"
++#include "armada-370-xp.dtsi"
+ /include/ "skeleton.dtsi"
+ 
+ / {
+@@ -29,8 +29,67 @@
+ 	};
+ 
+ 	soc {
+-		ranges = <0          0xd0000000 0x0100000 /* internal registers */
+-			  0xe0000000 0xe0000000 0x8100000 /* PCIe */>;
++		compatible = "marvell,armada370-mbus", "simple-bus";
++
++		bootrom {
++			compatible = "marvell,bootrom";
++			reg = <MBUS_ID(0x01, 0xe0) 0 0x100000>;
++		};
++
++		pcie-controller {
++			compatible = "marvell,armada-370-pcie";
++			status = "disabled";
++			device_type = "pci";
++
++			#address-cells = <3>;
++			#size-cells = <2>;
++
++			msi-parent = <&mpic>;
++			bus-range = <0x00 0xff>;
++
++			ranges =
++			       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000
++				0x82000000 0 0x80000 MBUS_ID(0xf0, 0x01) 0x80000 0 0x00002000
++				0x82000000 0x1 0     MBUS_ID(0x04, 0xe8) 0       1 0 /* Port 0.0 MEM */
++				0x81000000 0x1 0     MBUS_ID(0x04, 0xe0) 0       1 0 /* Port 0.0 IO  */
++				0x82000000 0x2 0     MBUS_ID(0x08, 0xe8) 0       1 0 /* Port 1.0 MEM */
++				0x81000000 0x2 0     MBUS_ID(0x08, 0xe0) 0       1 0 /* Port 1.0 IO  */>;
++
++			pcie@1,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
++				reg = <0x0800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++                                ranges = <0x82000000 0 0 0x82000000 0x1 0 1 0
++                                          0x81000000 0 0 0x81000000 0x1 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 58>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 5>;
++				status = "disabled";
++			};
++
++			pcie@2,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82002800 0 0x80000 0 0x2000>;
++				reg = <0x1000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++                                ranges = <0x82000000 0 0 0x82000000 0x2 0 1 0
++                                          0x81000000 0 0 0x81000000 0x2 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 62>;
++				marvell,pcie-port = <1>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 9>;
++				status = "disabled";
++			};
++		};
++
+ 		internal-regs {
+ 			system-controller@18200 {
+ 				compatible = "marvell,armada-370-xp-system-controller";
+@@ -78,7 +137,7 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <82>, <83>, <84>, <85>;
+ 			};
+ 
+@@ -89,7 +148,7 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <87>, <88>, <89>, <90>;
+ 			};
+ 
+@@ -100,7 +159,7 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <91>;
+ 			};
+ 
+@@ -169,54 +228,6 @@
+ 					0x18304 0x4>;
+ 				status = "okay";
+ 			};
+-
+-			pcie-controller {
+-				compatible = "marvell,armada-370-pcie";
+-				status = "disabled";
+-				device_type = "pci";
+-
+-				#address-cells = <3>;
+-				#size-cells = <2>;
+-
+-				bus-range = <0x00 0xff>;
+-
+-				ranges = <0x82000000 0 0x40000 0x40000 0 0x00002000   /* Port 0.0 registers */
+-					0x82000000 0 0x80000 0x80000 0 0x00002000   /* Port 1.0 registers */
+-					0x82000000 0 0xe0000000 0xe0000000 0 0x08000000   /* non-prefetchable memory */
+-					0x81000000 0 0          0xe8000000 0 0x00100000>; /* downstream I/O */
+-
+-				pcie@1,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
+-					reg = <0x0800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 58>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 5>;
+-					status = "disabled";
+-				};
+-
+-				pcie@2,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82002800 0 0x80000 0 0x2000>;
+-					reg = <0x1000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 62>;
+-					marvell,pcie-port = <1>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 9>;
+-					status = "disabled";
+-				};
+-			};
+ 		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/armada-xp-db.dts b/arch/arm/boot/dts/armada-xp-db.dts
+index e28e68f..bcf6d79 100644
+--- a/arch/arm/boot/dts/armada-xp-db.dts
++++ b/arch/arm/boot/dts/armada-xp-db.dts
+@@ -14,7 +14,7 @@
+  */
+ 
+ /dts-v1/;
+-/include/ "armada-xp-mv78460.dtsi"
++#include "armada-xp-mv78460.dtsi"
+ 
+ / {
+ 	model = "Marvell Armada XP Evaluation Board";
+@@ -30,9 +30,70 @@
+ 	};
+ 
+ 	soc {
+-		ranges = <0          0 0xd0000000 0x100000	/* Internal registers 1MiB */
+-			  0xe0000000 0 0xe0000000 0x8100000     /* PCIe */
+-			  0xf0000000 0 0xf0000000 0x1000000>;	/* Device Bus, NOR 16MiB   */
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xd0000000 0x100000
++			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
++			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000>;
++
++		devbus-bootcs {
++			status = "okay";
++
++			/* Device Bus parameters are required */
++
++			/* Read parameters */
++			devbus,bus-width    = <8>;
++			devbus,turn-off-ps  = <60000>;
++			devbus,badr-skew-ps = <0>;
++			devbus,acc-first-ps = <124000>;
++			devbus,acc-next-ps  = <248000>;
++			devbus,rd-setup-ps  = <0>;
++			devbus,rd-hold-ps   = <0>;
++
++			/* Write parameters */
++			devbus,sync-enable = <0>;
++			devbus,wr-high-ps  = <60000>;
++			devbus,wr-low-ps   = <60000>;
++			devbus,ale-wr-ps   = <60000>;
++
++			/* NOR 16 MiB */
++			nor@0 {
++				compatible = "cfi-flash";
++				reg = <0 0x1000000>;
++				bank-width = <2>;
++			};
++		};
++
++		pcie-controller {
++			status = "okay";
++
++			/*
++			 * All 6 slots are physically present as
++			 * standard PCIe slots on the board.
++			 */
++			pcie@1,0 {
++				/* Port 0, Lane 0 */
++				status = "okay";
++			};
++			pcie@2,0 {
++				/* Port 0, Lane 1 */
++				status = "okay";
++			};
++			pcie@3,0 {
++				/* Port 0, Lane 2 */
++				status = "okay";
++			};
++			pcie@4,0 {
++				/* Port 0, Lane 3 */
++				status = "okay";
++			};
++			pcie@9,0 {
++				/* Port 2, Lane 0 */
++				status = "okay";
++			};
++			pcie@10,0 {
++				/* Port 3, Lane 0 */
++				status = "okay";
++			};
++		};
+ 
+ 		internal-regs {
+ 			serial@12000 {
+@@ -127,68 +188,6 @@
+ 					spi-max-frequency = <20000000>;
+ 				};
+ 			};
+-
+-			pcie-controller {
+-				status = "okay";
+-
+-				/*
+-				 * All 6 slots are physically present as
+-				 * standard PCIe slots on the board.
+-				 */
+-				pcie@1,0 {
+-					/* Port 0, Lane 0 */
+-					status = "okay";
+-				};
+-				pcie@2,0 {
+-					/* Port 0, Lane 1 */
+-					status = "okay";
+-				};
+-				pcie@3,0 {
+-					/* Port 0, Lane 2 */
+-					status = "okay";
+-				};
+-				pcie@4,0 {
+-					/* Port 0, Lane 3 */
+-					status = "okay";
+-				};
+-				pcie@9,0 {
+-					/* Port 2, Lane 0 */
+-					status = "okay";
+-				};
+-				pcie@10,0 {
+-					/* Port 3, Lane 0 */
+-					status = "okay";
+-				};
+-			};
+-
+-			devbus-bootcs@10400 {
+-				status = "okay";
+-				ranges = <0 0xf0000000 0x1000000>;
+-
+-				/* Device Bus parameters are required */
+-
+-				/* Read parameters */
+-				devbus,bus-width    = <8>;
+-				devbus,turn-off-ps  = <60000>;
+-				devbus,badr-skew-ps = <0>;
+-				devbus,acc-first-ps = <124000>;
+-				devbus,acc-next-ps  = <248000>;
+-				devbus,rd-setup-ps  = <0>;
+-				devbus,rd-hold-ps   = <0>;
+-
+-				/* Write parameters */
+-				devbus,sync-enable = <0>;
+-				devbus,wr-high-ps  = <60000>;
+-				devbus,wr-low-ps   = <60000>;
+-				devbus,ale-wr-ps   = <60000>;
+-
+-				/* NOR 16 MiB */
+-				nor@0 {
+-					compatible = "cfi-flash";
+-					reg = <0 0x1000000>;
+-					bank-width = <2>;
+-				};
+-			};
+ 		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/armada-xp-gp.dts b/arch/arm/boot/dts/armada-xp-gp.dts
+index c87b2de..274e2ad 100644
+--- a/arch/arm/boot/dts/armada-xp-gp.dts
++++ b/arch/arm/boot/dts/armada-xp-gp.dts
+@@ -14,7 +14,7 @@
+  */
+ 
+ /dts-v1/;
+-/include/ "armada-xp-mv78460.dtsi"
++#include "armada-xp-mv78460.dtsi"
+ 
+ / {
+ 	model = "Marvell Armada XP Development Board DB-MV784MP-GP";
+@@ -39,9 +39,58 @@
+ 	};
+ 
+ 	soc {
+-		ranges = <0          0 0xd0000000 0x100000  /* Internal registers 1MiB */
+-			  0xe0000000 0 0xe0000000 0x8100000 /* PCIe */
+-			  0xf0000000 0 0xf0000000 0x1000000 /* Device Bus, NOR 16MiB  */>;
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xd0000000 0x100000
++			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
++			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x1000000>;
++
++		devbus-bootcs {
++			status = "okay";
++
++			/* Device Bus parameters are required */
++
++			/* Read parameters */
++			devbus,bus-width    = <8>;
++			devbus,turn-off-ps  = <60000>;
++			devbus,badr-skew-ps = <0>;
++			devbus,acc-first-ps = <124000>;
++			devbus,acc-next-ps  = <248000>;
++			devbus,rd-setup-ps  = <0>;
++			devbus,rd-hold-ps   = <0>;
++
++			/* Write parameters */
++			devbus,sync-enable = <0>;
++			devbus,wr-high-ps  = <60000>;
++			devbus,wr-low-ps   = <60000>;
++			devbus,ale-wr-ps   = <60000>;
++
++			/* NOR 16 MiB */
++			nor@0 {
++				compatible = "cfi-flash";
++				reg = <0 0x1000000>;
++				bank-width = <2>;
++			};
++		};
++
++		pcie-controller {
++			status = "okay";
++
++			/*
++			 * The 3 slots are physically present as
++			 * standard PCIe slots on the board.
++			 */
++			pcie@1,0 {
++				/* Port 0, Lane 0 */
++				status = "okay";
++			};
++			pcie@9,0 {
++				/* Port 2, Lane 0 */
++				status = "okay";
++			};
++			pcie@10,0 {
++				/* Port 3, Lane 0 */
++				status = "okay";
++			};
++		};
+ 
+ 		internal-regs {
+ 			serial@12000 {
+@@ -127,54 +176,12 @@
+ 				};
+ 			};
+ 
+-			devbus-bootcs@10400 {
++			nand@d0000 {
+ 				status = "okay";
+-				ranges = <0 0xf0000000 0x1000000>; /* @addr 0xf000000, size 0x1000000 */
+-
+-				/* Device Bus parameters are required */
+-
+-				/* Read parameters */
+-				devbus,bus-width    = <8>;
+-				devbus,turn-off-ps  = <60000>;
+-				devbus,badr-skew-ps = <0>;
+-				devbus,acc-first-ps = <124000>;
+-				devbus,acc-next-ps  = <248000>;
+-				devbus,rd-setup-ps  = <0>;
+-				devbus,rd-hold-ps   = <0>;
+-
+-				/* Write parameters */
+-				devbus,sync-enable = <0>;
+-				devbus,wr-high-ps  = <60000>;
+-				devbus,wr-low-ps   = <60000>;
+-				devbus,ale-wr-ps   = <60000>;
+-
+-				/* NOR 16 MiB */
+-				nor@0 {
+-					compatible = "cfi-flash";
+-					reg = <0 0x1000000>;
+-					bank-width = <2>;
+-				};
+-			};
+-
+-			pcie-controller {
+-				status = "okay";
+-
+-				/*
+-				 * The 3 slots are physically present as
+-				 * standard PCIe slots on the board.
+-				 */
+-				pcie@1,0 {
+-					/* Port 0, Lane 0 */
+-					status = "okay";
+-				};
+-				pcie@9,0 {
+-					/* Port 2, Lane 0 */
+-					status = "okay";
+-				};
+-				pcie@10,0 {
+-					/* Port 3, Lane 0 */
+-					status = "okay";
+-				};
++				num-cs = <1>;
++				marvell,nand-keep-config;
++				marvell,nand-enable-arbiter;
++				nand-on-flash-bbt;
+ 			};
+ 		};
+ 	};
+diff --git a/arch/arm/boot/dts/armada-xp-mv78230.dtsi b/arch/arm/boot/dts/armada-xp-mv78230.dtsi
+index f94cdbc..ebaa6d3 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78230.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78230.dtsi
+@@ -13,7 +13,7 @@
+  * common to all Armada XP SoCs.
+  */
+ 
+-/include/ "armada-xp.dtsi"
++#include "armada-xp.dtsi"
+ 
+ / {
+ 	model = "Marvell Armada XP MV78230 SoC";
+@@ -44,6 +44,125 @@
+ 	};
+ 
+ 	soc {
++		/*
++		 * MV78230 has 2 PCIe units Gen2.0: One unit can be
++		 * configured as x4 or quad x1 lanes. One unit is
++		 * x4/x1.
++		 */
++		pcie-controller {
++			compatible = "marvell,armada-xp-pcie";
++			status = "disabled";
++			device_type = "pci";
++
++			#address-cells = <3>;
++			#size-cells = <2>;
++
++				msi-parent = <&mpic>;
++			bus-range = <0x00 0xff>;
++
++			ranges =
++			       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000   /* Port 0.0 registers */
++				0x82000000 0 0x42000 MBUS_ID(0xf0, 0x01) 0x42000 0 0x00002000   /* Port 2.0 registers */
++				0x82000000 0 0x44000 MBUS_ID(0xf0, 0x01) 0x44000 0 0x00002000   /* Port 0.1 registers */
++				0x82000000 0 0x48000 MBUS_ID(0xf0, 0x01) 0x48000 0 0x00002000   /* Port 0.2 registers */
++				0x82000000 0 0x4c000 MBUS_ID(0xf0, 0x01) 0x4c000 0 0x00002000   /* Port 0.3 registers */
++				0x82000000 0x1 0       MBUS_ID(0x04, 0xe8) 0 1 0 /* Port 0.0 MEM */
++				0x81000000 0x1 0       MBUS_ID(0x04, 0xe0) 0 1 0 /* Port 0.0 IO  */
++				0x82000000 0x2 0       MBUS_ID(0x04, 0xd8) 0 1 0 /* Port 0.1 MEM */
++				0x81000000 0x2 0       MBUS_ID(0x04, 0xd0) 0 1 0 /* Port 0.1 IO  */
++				0x82000000 0x3 0       MBUS_ID(0x04, 0xb8) 0 1 0 /* Port 0.2 MEM */
++				0x81000000 0x3 0       MBUS_ID(0x04, 0xb0) 0 1 0 /* Port 0.2 IO  */
++				0x82000000 0x4 0       MBUS_ID(0x04, 0x78) 0 1 0 /* Port 0.3 MEM */
++				0x81000000 0x4 0       MBUS_ID(0x04, 0x70) 0 1 0 /* Port 0.3 IO  */
++				0x82000000 0x9 0       MBUS_ID(0x04, 0xf8) 0 1 0 /* Port 2.0 MEM */
++				0x81000000 0x9 0       MBUS_ID(0x04, 0xf0) 0 1 0 /* Port 2.0 IO  */>;
++
++			pcie@1,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
++				reg = <0x0800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x1 0 1 0
++					  0x81000000 0 0 0x81000000 0x1 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 58>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 5>;
++				status = "disabled";
++			};
++
++			pcie@2,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x44000 0 0x2000>;
++				reg = <0x1000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x2 0 1 0
++					  0x81000000 0 0 0x81000000 0x2 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 59>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <1>;
++				clocks = <&gateclk 6>;
++				status = "disabled";
++			};
++
++			pcie@3,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x48000 0 0x2000>;
++				reg = <0x1800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x3 0 1 0
++					  0x81000000 0 0 0x81000000 0x3 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 60>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <2>;
++				clocks = <&gateclk 7>;
++				status = "disabled";
++			};
++
++			pcie@4,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x4c000 0 0x2000>;
++				reg = <0x2000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x4 0 1 0
++					  0x81000000 0 0 0x81000000 0x4 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 61>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <3>;
++				clocks = <&gateclk 8>;
++				status = "disabled";
++			};
++
++			pcie@9,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x42000 0 0x2000>;
++				reg = <0x4800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x9 0 1 0
++					  0x81000000 0 0 0x81000000 0x9 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 99>;
++				marvell,pcie-port = <2>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 26>;
++				status = "disabled";
++			};
++		};
++
+ 		internal-regs {
+ 			pinctrl {
+ 				compatible = "marvell,mv78230-pinctrl";
+@@ -63,7 +182,7 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <82>, <83>, <84>, <85>;
+ 			};
+ 
+@@ -74,113 +193,11 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <87>, <88>, <89>;
+ 			};
+ 
+ 			/*
+-			 * MV78230 has 2 PCIe units Gen2.0: One unit can be
+-			 * configured as x4 or quad x1 lanes. One unit is
+-			 * x1 only.
+-			 */
+-			pcie-controller {
+-				compatible = "marvell,armada-xp-pcie";
+-				status = "disabled";
+-				device_type = "pci";
+-
+-#address-cells = <3>;
+-#size-cells = <2>;
+-
+-				bus-range = <0x00 0xff>;
+-
+-				ranges = <0x82000000 0 0x40000 0x40000 0 0x00002000   /* Port 0.0 registers */
+-					0x82000000 0 0x44000 0x44000 0 0x00002000   /* Port 0.1 registers */
+-					0x82000000 0 0x48000 0x48000 0 0x00002000   /* Port 0.2 registers */
+-					0x82000000 0 0x4c000 0x4c000 0 0x00002000   /* Port 0.3 registers */
+-					0x82000000 0 0x80000 0x80000 0 0x00002000   /* Port 1.0 registers */
+-					0x82000000 0 0xe0000000 0xe0000000 0 0x08000000   /* non-prefetchable memory */
+-					0x81000000 0 0	  0xe8000000 0 0x00100000>; /* downstream I/O */
+-
+-				pcie@1,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
+-					reg = <0x0800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 58>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 5>;
+-					status = "disabled";
+-				};
+-
+-				pcie@2,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x44000 0 0x2000>;
+-					reg = <0x1000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 59>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <1>;
+-					clocks = <&gateclk 6>;
+-					status = "disabled";
+-				};
+-
+-				pcie@3,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x48000 0 0x2000>;
+-					reg = <0x1800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 60>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <2>;
+-					clocks = <&gateclk 7>;
+-					status = "disabled";
+-				};
+-
+-				pcie@4,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x4c000 0 0x2000>;
+-					reg = <0x2000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 61>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <3>;
+-					clocks = <&gateclk 8>;
+-					status = "disabled";
+-				};
+-
+-				pcie@5,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x80000 0 0x2000>;
+-					reg = <0x2800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 62>;
+-					marvell,pcie-port = <1>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 9>;
+-					status = "disabled";
+-				};
+-			};
+ 		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/armada-xp-mv78260.dtsi b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
+index f2808b7..165d7d5 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78260.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
+@@ -13,7 +13,7 @@
+  * common to all Armada XP SoCs.
+  */
+ 
+-/include/ "armada-xp.dtsi"
++#include "armada-xp.dtsi"
+ 
+ / {
+ 	model = "Marvell Armada XP MV78260 SoC";
+@@ -45,6 +45,146 @@
+ 	};
+ 
+ 	soc {
++		/*
++		 * MV78260 has 3 PCIe units Gen2.0: Two units can be
++		 * configured as x4 or quad x1 lanes. One unit is
++		 * x4/x1.
++		 */
++		pcie-controller {
++			compatible = "marvell,armada-xp-pcie";
++			status = "disabled";
++			device_type = "pci";
++
++			#address-cells = <3>;
++			#size-cells = <2>;
++
++				msi-parent = <&mpic>;
++			bus-range = <0x00 0xff>;
++
++			ranges =
++			       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000   /* Port 0.0 registers */
++				0x82000000 0 0x42000 MBUS_ID(0xf0, 0x01) 0x42000 0 0x00002000   /* Port 2.0 registers */
++				0x82000000 0 0x44000 MBUS_ID(0xf0, 0x01) 0x44000 0 0x00002000   /* Port 0.1 registers */
++				0x82000000 0 0x48000 MBUS_ID(0xf0, 0x01) 0x48000 0 0x00002000   /* Port 0.2 registers */
++				0x82000000 0 0x4c000 MBUS_ID(0xf0, 0x01) 0x4c000 0 0x00002000   /* Port 0.3 registers */
++				0x82000000 0 0x80000 MBUS_ID(0xf0, 0x01) 0x80000 0 0x00002000   /* Port 1.0 registers */
++				0x82000000 0 0x82000 MBUS_ID(0xf0, 0x01) 0x82000 0 0x00002000   /* Port 3.0 registers */
++				0x82000000 0x1 0     MBUS_ID(0x04, 0xe8) 0 1 0 /* Port 0.0 MEM */
++				0x81000000 0x1 0     MBUS_ID(0x04, 0xe0) 0 1 0 /* Port 0.0 IO  */
++				0x82000000 0x2 0     MBUS_ID(0x04, 0xd8) 0 1 0 /* Port 0.1 MEM */
++				0x81000000 0x2 0     MBUS_ID(0x04, 0xd0) 0 1 0 /* Port 0.1 IO  */
++				0x82000000 0x3 0     MBUS_ID(0x04, 0xb8) 0 1 0 /* Port 0.2 MEM */
++				0x81000000 0x3 0     MBUS_ID(0x04, 0xb0) 0 1 0 /* Port 0.2 IO  */
++				0x82000000 0x4 0     MBUS_ID(0x04, 0x78) 0 1 0 /* Port 0.3 MEM */
++				0x81000000 0x4 0     MBUS_ID(0x04, 0x70) 0 1 0 /* Port 0.3 IO  */
++				0x82000000 0x9 0     MBUS_ID(0x08, 0xe8) 0 1 0 /* Port 1.0 MEM */
++				0x81000000 0x9 0     MBUS_ID(0x08, 0xe0) 0 1 0 /* Port 1.0 IO  */
++				0x82000000 0xa 0     MBUS_ID(0x08, 0xf8) 0 1 0 /* Port 3.0 MEM */
++				0x81000000 0xa 0     MBUS_ID(0x08, 0xf0) 0 1 0 /* Port 3.0 IO  */>;
++
++			pcie@1,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
++				reg = <0x0800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x1 0 1 0
++					  0x81000000 0 0 0x81000000 0x1 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 58>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 5>;
++				status = "disabled";
++			};
++
++			pcie@2,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x44000 0 0x2000>;
++				reg = <0x1000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++                                ranges = <0x82000000 0 0 0x82000000 0x2 0 1 0
++                                          0x81000000 0 0 0x81000000 0x2 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 59>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <1>;
++				clocks = <&gateclk 6>;
++				status = "disabled";
++			};
++
++			pcie@3,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x48000 0 0x2000>;
++				reg = <0x1800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x3 0 1 0
++					  0x81000000 0 0 0x81000000 0x3 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 60>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <2>;
++				clocks = <&gateclk 7>;
++				status = "disabled";
++			};
++
++			pcie@4,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x4c000 0 0x2000>;
++				reg = <0x2000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x4 0 1 0
++					  0x81000000 0 0 0x81000000 0x4 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 61>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <3>;
++				clocks = <&gateclk 8>;
++				status = "disabled";
++			};
++
++			pcie@9,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x42000 0 0x2000>;
++				reg = <0x4800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x9 0 1 0
++					  0x81000000 0 0 0x81000000 0x9 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 99>;
++				marvell,pcie-port = <2>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 26>;
++				status = "disabled";
++			};
++
++			pcie@10,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x82000 0 0x2000>;
++				reg = <0x5000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0xa 0 1 0
++					  0x81000000 0 0 0x81000000 0xa 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 103>;
++				marvell,pcie-port = <3>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 27>;
++				status = "disabled";
++			};
++		};
++
+ 		internal-regs {
+ 			pinctrl {
+ 				compatible = "marvell,mv78260-pinctrl";
+@@ -64,7 +204,7 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <82>, <83>, <84>, <85>;
+ 			};
+ 
+@@ -75,7 +215,7 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <87>, <88>, <89>, <90>;
+ 			};
+ 
+@@ -86,7 +226,7 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <91>;
+ 			};
+ 
+@@ -98,177 +238,6 @@
+ 				status = "disabled";
+ 			};
+ 
+-			/*
+-			 * MV78260 has 3 PCIe units Gen2.0: Two units can be
+-			 * configured as x4 or quad x1 lanes. One unit is
+-			 * x4 only.
+-			 */
+-			pcie-controller {
+-				compatible = "marvell,armada-xp-pcie";
+-				status = "disabled";
+-				device_type = "pci";
+-
+-				#address-cells = <3>;
+-				#size-cells = <2>;
+-
+-				bus-range = <0x00 0xff>;
+-
+-				ranges = <0x82000000 0 0x40000 0x40000 0 0x00002000   /* Port 0.0 registers */
+-					0x82000000 0 0x42000 0x42000 0 0x00002000   /* Port 2.0 registers */
+-					0x82000000 0 0x44000 0x44000 0 0x00002000   /* Port 0.1 registers */
+-					0x82000000 0 0x48000 0x48000 0 0x00002000   /* Port 0.2 registers */
+-					0x82000000 0 0x4c000 0x4c000 0 0x00002000   /* Port 0.3 registers */
+-					0x82000000 0 0x80000 0x80000 0 0x00002000   /* Port 1.0 registers */
+-					0x82000000 0 0x84000 0x84000 0 0x00002000   /* Port 1.1 registers */
+-					0x82000000 0 0x88000 0x88000 0 0x00002000   /* Port 1.2 registers */
+-					0x82000000 0 0x8c000 0x8c000 0 0x00002000   /* Port 1.3 registers */
+-					0x82000000 0 0xe0000000 0xe0000000 0 0x08000000   /* non-prefetchable memory */
+-					0x81000000 0 0	  0xe8000000 0 0x00100000>; /* downstream I/O */
+-
+-				pcie@1,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
+-					reg = <0x0800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 58>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 5>;
+-					status = "disabled";
+-				};
+-
+-				pcie@2,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x44000 0 0x2000>;
+-					reg = <0x1000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 59>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <1>;
+-					clocks = <&gateclk 6>;
+-					status = "disabled";
+-				};
+-
+-				pcie@3,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x48000 0 0x2000>;
+-					reg = <0x1800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 60>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <2>;
+-					clocks = <&gateclk 7>;
+-					status = "disabled";
+-				};
+-
+-				pcie@4,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x4c000 0 0x2000>;
+-					reg = <0x2000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 61>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <3>;
+-					clocks = <&gateclk 8>;
+-					status = "disabled";
+-				};
+-
+-				pcie@5,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x80000 0 0x2000>;
+-					reg = <0x2800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 62>;
+-					marvell,pcie-port = <1>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 9>;
+-					status = "disabled";
+-				};
+-
+-				pcie@6,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x84000 0 0x2000>;
+-					reg = <0x3000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 63>;
+-					marvell,pcie-port = <1>;
+-					marvell,pcie-lane = <1>;
+-					clocks = <&gateclk 10>;
+-					status = "disabled";
+-				};
+-
+-				pcie@7,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x88000 0 0x2000>;
+-					reg = <0x3800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 64>;
+-					marvell,pcie-port = <1>;
+-					marvell,pcie-lane = <2>;
+-					clocks = <&gateclk 11>;
+-					status = "disabled";
+-				};
+-
+-				pcie@8,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x8c000 0 0x2000>;
+-					reg = <0x4000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 65>;
+-					marvell,pcie-port = <1>;
+-					marvell,pcie-lane = <3>;
+-					clocks = <&gateclk 12>;
+-					status = "disabled";
+-				};
+-
+-				pcie@9,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x42000 0 0x2000>;
+-					reg = <0x4800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 99>;
+-					marvell,pcie-port = <2>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 26>;
+-					status = "disabled";
+-				};
+-			};
+ 		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/armada-xp-mv78460.dtsi b/arch/arm/boot/dts/armada-xp-mv78460.dtsi
+index 488ca5e..11cf003 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78460.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78460.dtsi
+@@ -13,7 +13,7 @@
+  * common to all Armada XP SoCs.
+  */
+ 
+-/include/ "armada-xp.dtsi"
++#include "armada-xp.dtsi"
+ 
+ / {
+ 	model = "Marvell Armada XP MV78460 SoC";
+@@ -23,6 +23,7 @@
+ 		gpio0 = &gpio0;
+ 		gpio1 = &gpio1;
+ 		gpio2 = &gpio2;
++		eth3 = &eth3;
+ 	};
+ 
+ 
+@@ -60,6 +61,228 @@
+ 	};
+ 
+ 	soc {
++		/*
++		 * MV78460 has 4 PCIe units Gen2.0: Two units can be
++		 * configured as x4 or quad x1 lanes. Two units are
++		 * x4/x1.
++		 */
++		pcie-controller {
++			compatible = "marvell,armada-xp-pcie";
++			status = "disabled";
++			device_type = "pci";
++
++			#address-cells = <3>;
++			#size-cells = <2>;
++
++				msi-parent = <&mpic>;
++			bus-range = <0x00 0xff>;
++
++			ranges =
++			       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000   /* Port 0.0 registers */
++				0x82000000 0 0x42000 MBUS_ID(0xf0, 0x01) 0x42000 0 0x00002000   /* Port 2.0 registers */
++				0x82000000 0 0x44000 MBUS_ID(0xf0, 0x01) 0x44000 0 0x00002000   /* Port 0.1 registers */
++				0x82000000 0 0x48000 MBUS_ID(0xf0, 0x01) 0x48000 0 0x00002000   /* Port 0.2 registers */
++				0x82000000 0 0x4c000 MBUS_ID(0xf0, 0x01) 0x4c000 0 0x00002000   /* Port 0.3 registers */
++				0x82000000 0 0x80000 MBUS_ID(0xf0, 0x01) 0x80000 0 0x00002000   /* Port 1.0 registers */
++				0x82000000 0 0x82000 MBUS_ID(0xf0, 0x01) 0x82000 0 0x00002000   /* Port 3.0 registers */
++				0x82000000 0 0x84000 MBUS_ID(0xf0, 0x01) 0x84000 0 0x00002000   /* Port 1.1 registers */
++				0x82000000 0 0x88000 MBUS_ID(0xf0, 0x01) 0x88000 0 0x00002000   /* Port 1.2 registers */
++				0x82000000 0 0x8c000 MBUS_ID(0xf0, 0x01) 0x8c000 0 0x00002000   /* Port 1.3 registers */
++				0x82000000 0x1 0     MBUS_ID(0x04, 0xe8) 0 1 0 /* Port 0.0 MEM */
++				0x81000000 0x1 0     MBUS_ID(0x04, 0xe0) 0 1 0 /* Port 0.0 IO  */
++				0x82000000 0x2 0     MBUS_ID(0x04, 0xd8) 0 1 0 /* Port 0.1 MEM */
++				0x81000000 0x2 0     MBUS_ID(0x04, 0xd0) 0 1 0 /* Port 0.1 IO  */
++				0x82000000 0x3 0     MBUS_ID(0x04, 0xb8) 0 1 0 /* Port 0.2 MEM */
++				0x81000000 0x3 0     MBUS_ID(0x04, 0xb0) 0 1 0 /* Port 0.2 IO  */
++				0x82000000 0x4 0     MBUS_ID(0x04, 0x78) 0 1 0 /* Port 0.3 MEM */
++				0x81000000 0x4 0     MBUS_ID(0x04, 0x70) 0 1 0 /* Port 0.3 IO  */
++
++				0x82000000 0x5 0     MBUS_ID(0x08, 0xe8) 0 1 0 /* Port 1.0 MEM */
++				0x81000000 0x5 0     MBUS_ID(0x08, 0xe0) 0 1 0 /* Port 1.0 IO  */
++				0x82000000 0x6 0     MBUS_ID(0x08, 0xd8) 0 1 0 /* Port 1.1 MEM */
++				0x81000000 0x6 0     MBUS_ID(0x08, 0xd0) 0 1 0 /* Port 1.1 IO  */
++				0x82000000 0x7 0     MBUS_ID(0x08, 0xb8) 0 1 0 /* Port 1.2 MEM */
++				0x81000000 0x7 0     MBUS_ID(0x08, 0xb0) 0 1 0 /* Port 1.2 IO  */
++				0x82000000 0x8 0     MBUS_ID(0x08, 0x78) 0 1 0 /* Port 1.3 MEM */
++				0x81000000 0x8 0     MBUS_ID(0x08, 0x70) 0 1 0 /* Port 1.3 IO  */
++
++				0x82000000 0x9 0     MBUS_ID(0x04, 0xf8) 0 1 0 /* Port 2.0 MEM */
++				0x81000000 0x9 0     MBUS_ID(0x04, 0xf0) 0 1 0 /* Port 2.0 IO  */
++
++				0x82000000 0xa 0     MBUS_ID(0x08, 0xf8) 0 1 0 /* Port 3.0 MEM */
++				0x81000000 0xa 0     MBUS_ID(0x08, 0xf0) 0 1 0 /* Port 3.0 IO  */>;
++
++			pcie@1,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
++				reg = <0x0800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x1 0 1 0
++					  0x81000000 0 0 0x81000000 0x1 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 58>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 5>;
++				status = "disabled";
++			};
++
++			pcie@2,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82001000 0 0x44000 0 0x2000>;
++				reg = <0x1000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x2 0 1 0
++					  0x81000000 0 0 0x81000000 0x2 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 59>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <1>;
++				clocks = <&gateclk 6>;
++				status = "disabled";
++			};
++
++			pcie@3,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82001800 0 0x48000 0 0x2000>;
++				reg = <0x1800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x3 0 1 0
++					  0x81000000 0 0 0x81000000 0x3 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 60>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <2>;
++				clocks = <&gateclk 7>;
++				status = "disabled";
++			};
++
++			pcie@4,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82002000 0 0x4c000 0 0x2000>;
++				reg = <0x2000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x4 0 1 0
++					  0x81000000 0 0 0x81000000 0x4 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 61>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <3>;
++				clocks = <&gateclk 8>;
++				status = "disabled";
++			};
++
++			pcie@5,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82002800 0 0x80000 0 0x2000>;
++				reg = <0x2800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x5 0 1 0
++					  0x81000000 0 0 0x81000000 0x5 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 62>;
++				marvell,pcie-port = <1>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 9>;
++				status = "disabled";
++			};
++
++			pcie@6,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82003000 0 0x84000 0 0x2000>;
++				reg = <0x3000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x6 0 1 0
++					  0x81000000 0 0 0x81000000 0x6 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 63>;
++				marvell,pcie-port = <1>;
++				marvell,pcie-lane = <1>;
++				clocks = <&gateclk 10>;
++				status = "disabled";
++			};
++
++			pcie@7,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82003800 0 0x88000 0 0x2000>;
++				reg = <0x3800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x7 0 1 0
++					  0x81000000 0 0 0x81000000 0x7 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 64>;
++				marvell,pcie-port = <1>;
++				marvell,pcie-lane = <2>;
++				clocks = <&gateclk 11>;
++				status = "disabled";
++			};
++
++			pcie@8,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82004000 0 0x8c000 0 0x2000>;
++				reg = <0x4000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x8 0 1 0
++					  0x81000000 0 0 0x81000000 0x8 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 65>;
++				marvell,pcie-port = <1>;
++				marvell,pcie-lane = <3>;
++				clocks = <&gateclk 12>;
++				status = "disabled";
++			};
++
++			pcie@9,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82004800 0 0x42000 0 0x2000>;
++				reg = <0x4800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x9 0 1 0
++					  0x81000000 0 0 0x81000000 0x9 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 99>;
++				marvell,pcie-port = <2>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 26>;
++				status = "disabled";
++			};
++
++			pcie@10,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82005000 0 0x82000 0 0x2000>;
++				reg = <0x5000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0xa 0 1 0
++					  0x81000000 0 0 0x81000000 0xa 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 103>;
++				marvell,pcie-port = <3>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gateclk 27>;
++				status = "disabled";
++			};
++		};
++
+ 		internal-regs {
+ 			pinctrl {
+ 				compatible = "marvell,mv78460-pinctrl";
+@@ -79,7 +302,7 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <82>, <83>, <84>, <85>;
+ 			};
+ 
+@@ -90,7 +313,7 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <87>, <88>, <89>, <90>;
+ 			};
+ 
+@@ -101,205 +324,17 @@
+ 				gpio-controller;
+ 				#gpio-cells = <2>;
+ 				interrupt-controller;
+-				#interrupts-cells = <2>;
++				#interrupt-cells = <2>;
+ 				interrupts = <91>;
+ 			};
+ 
+-			ethernet@34000 {
++			eth3: ethernet@34000 {
+ 				compatible = "marvell,armada-370-neta";
+ 				reg = <0x34000 0x4000>;
+ 				interrupts = <14>;
+ 				clocks = <&gateclk 1>;
+ 				status = "disabled";
+ 			};
+-
+-			/*
+-			 * MV78460 has 4 PCIe units Gen2.0: Two units can be
+-			 * configured as x4 or quad x1 lanes. Two units are
+-			 * x4/x1.
+-			 */
+-			pcie-controller {
+-				compatible = "marvell,armada-xp-pcie";
+-				status = "disabled";
+-				device_type = "pci";
+-
+-				#address-cells = <3>;
+-				#size-cells = <2>;
+-
+-				bus-range = <0x00 0xff>;
+-
+-				ranges = <0x82000000 0 0x40000 0x40000 0 0x00002000   /* Port 0.0 registers */
+-					0x82000000 0 0x42000 0x42000 0 0x00002000   /* Port 2.0 registers */
+-					0x82000000 0 0x44000 0x44000 0 0x00002000   /* Port 0.1 registers */
+-					0x82000000 0 0x48000 0x48000 0 0x00002000   /* Port 0.2 registers */
+-					0x82000000 0 0x4c000 0x4c000 0 0x00002000   /* Port 0.3 registers */
+-					0x82000000 0 0x80000 0x80000 0 0x00002000   /* Port 1.0 registers */
+-					0x82000000 0 0x82000 0x82000 0 0x00002000   /* Port 3.0 registers */
+-					0x82000000 0 0x84000 0x84000 0 0x00002000   /* Port 1.1 registers */
+-					0x82000000 0 0x88000 0x88000 0 0x00002000   /* Port 1.2 registers */
+-					0x82000000 0 0x8c000 0x8c000 0 0x00002000   /* Port 1.3 registers */
+-					0x82000000 0 0xe0000000 0xe0000000 0 0x08000000   /* non-prefetchable memory */
+-					0x81000000 0 0	  0xe8000000 0 0x00100000>; /* downstream I/O */
+-
+-				pcie@1,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82000800 0 0x40000 0 0x2000>;
+-					reg = <0x0800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 58>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 5>;
+-					status = "disabled";
+-				};
+-
+-				pcie@2,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82001000 0 0x44000 0 0x2000>;
+-					reg = <0x1000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 59>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <1>;
+-					clocks = <&gateclk 6>;
+-					status = "disabled";
+-				};
+-
+-				pcie@3,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82001800 0 0x48000 0 0x2000>;
+-					reg = <0x1800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 60>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <2>;
+-					clocks = <&gateclk 7>;
+-					status = "disabled";
+-				};
+-
+-				pcie@4,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82002000 0 0x4c000 0 0x2000>;
+-					reg = <0x2000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 61>;
+-					marvell,pcie-port = <0>;
+-					marvell,pcie-lane = <3>;
+-					clocks = <&gateclk 8>;
+-					status = "disabled";
+-				};
+-
+-				pcie@5,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82002800 0 0x80000 0 0x2000>;
+-					reg = <0x2800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 62>;
+-					marvell,pcie-port = <1>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 9>;
+-					status = "disabled";
+-				};
+-
+-				pcie@6,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82003000 0 0x84000 0 0x2000>;
+-					reg = <0x3000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 63>;
+-					marvell,pcie-port = <1>;
+-					marvell,pcie-lane = <1>;
+-					clocks = <&gateclk 10>;
+-					status = "disabled";
+-				};
+-
+-				pcie@7,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82003800 0 0x88000 0 0x2000>;
+-					reg = <0x3800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 64>;
+-					marvell,pcie-port = <1>;
+-					marvell,pcie-lane = <2>;
+-					clocks = <&gateclk 11>;
+-					status = "disabled";
+-				};
+-
+-				pcie@8,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82004000 0 0x8c000 0 0x2000>;
+-					reg = <0x4000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 65>;
+-					marvell,pcie-port = <1>;
+-					marvell,pcie-lane = <3>;
+-					clocks = <&gateclk 12>;
+-					status = "disabled";
+-				};
+-				pcie@9,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82004800 0 0x42000 0 0x2000>;
+-					reg = <0x4800 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 99>;
+-					marvell,pcie-port = <2>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 26>;
+-					status = "disabled";
+-				};
+-
+-				pcie@10,0 {
+-					device_type = "pci";
+-					assigned-addresses = <0x82005000 0 0x82000 0 0x2000>;
+-					reg = <0x5000 0 0 0 0>;
+-					#address-cells = <3>;
+-					#size-cells = <2>;
+-					#interrupt-cells = <1>;
+-					ranges;
+-					interrupt-map-mask = <0 0 0 0>;
+-					interrupt-map = <0 0 0 0 &mpic 103>;
+-					marvell,pcie-port = <3>;
+-					marvell,pcie-lane = <0>;
+-					clocks = <&gateclk 27>;
+-					status = "disabled";
+-				};
+-			};
+ 		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts b/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+index fdea75c..1150000 100644
+--- a/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
++++ b/arch/arm/boot/dts/armada-xp-openblocks-ax3-4.dts
+@@ -11,7 +11,7 @@
+  */
+ 
+ /dts-v1/;
+-/include/ "armada-xp-mv78260.dtsi"
++#include "armada-xp-mv78260.dtsi"
+ 
+ / {
+ 	model = "PlatHome OpenBlocks AX3-4 board";
+@@ -27,9 +27,46 @@
+ 	};
+ 
+ 	soc {
+-		ranges = <0          0 0xd0000000 0x100000	/* Internal registers 1MiB */
+-			  0xe0000000 0 0xe0000000 0x8100000     /* PCIe */
+-			  0xf0000000 0 0xf0000000 0x8000000     /* Device Bus, NOR 128MiB   */>;
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0 0xd0000000 0x100000
++			  MBUS_ID(0x01, 0x1d) 0 0 0xfff00000 0x100000
++			  MBUS_ID(0x01, 0x2f) 0 0 0xf0000000 0x8000000>;
++
++		devbus-bootcs {
++			status = "okay";
++
++			/* Device Bus parameters are required */
++
++			/* Read parameters */
++			devbus,bus-width    = <8>;
++			devbus,turn-off-ps  = <60000>;
++			devbus,badr-skew-ps = <0>;
++			devbus,acc-first-ps = <124000>;
++			devbus,acc-next-ps  = <248000>;
++			devbus,rd-setup-ps  = <0>;
++			devbus,rd-hold-ps   = <0>;
++
++			/* Write parameters */
++			devbus,sync-enable = <0>;
++			devbus,wr-high-ps  = <60000>;
++			devbus,wr-low-ps   = <60000>;
++			devbus,ale-wr-ps   = <60000>;
++
++			/* NOR 128 MiB */
++			nor@0 {
++				compatible = "cfi-flash";
++				reg = <0 0x8000000>;
++				bank-width = <2>;
++			};
++		};
++
++		pcie-controller {
++			status = "okay";
++			/* Internal mini-PCIe connector */
++			pcie@1,0 {
++				/* Port 0, Lane 0 */
++				status = "okay";
++			};
++		};
+ 
+ 		internal-regs {
+ 			serial@12000 {
+@@ -144,44 +181,6 @@
+ 			usb@51000 {
+ 				status = "okay";
+ 			};
+-
+-			devbus-bootcs@10400 {
+-				status = "okay";
+-				ranges = <0 0xf0000000 0x8000000>; /* @addr 0xf000000, size 0x8000000 */
+-
+-				/* Device Bus parameters are required */
+-
+-				/* Read parameters */
+-				devbus,bus-width    = <8>;
+-				devbus,turn-off-ps  = <60000>;
+-				devbus,badr-skew-ps = <0>;
+-				devbus,acc-first-ps = <124000>;
+-				devbus,acc-next-ps  = <248000>;
+-				devbus,rd-setup-ps  = <0>;
+-				devbus,rd-hold-ps   = <0>;
+-
+-				/* Write parameters */
+-				devbus,sync-enable = <0>;
+-				devbus,wr-high-ps  = <60000>;
+-				devbus,wr-low-ps   = <60000>;
+-				devbus,ale-wr-ps   = <60000>;
+-
+-				/* NOR 128 MiB */
+-				nor@0 {
+-					compatible = "cfi-flash";
+-					reg = <0 0x8000000>;
+-					bank-width = <2>;
+-				};
+-			};
+-
+-			pcie-controller {
+-				status = "okay";
+-				/* Internal mini-PCIe connector */
+-				pcie@1,0 {
+-					/* Port 0, Lane 0 */
+-					status = "okay";
+-				};
+-			};
+ 		};
+ 	};
+ };
+diff --git a/arch/arm/boot/dts/armada-xp.dtsi b/arch/arm/boot/dts/armada-xp.dtsi
+index 1ee8540..7ba99ce 100644
+--- a/arch/arm/boot/dts/armada-xp.dtsi
++++ b/arch/arm/boot/dts/armada-xp.dtsi
+@@ -16,13 +16,24 @@
+  * common to all Armada SoCs.
+  */
+ 
+-/include/ "armada-370-xp.dtsi"
++#include "armada-370-xp.dtsi"
+ 
+ / {
+ 	model = "Marvell Armada XP family SoC";
+ 	compatible = "marvell,armadaxp", "marvell,armada-370-xp";
+ 
++	aliases {
++		eth2 = &eth2;
++	};
++
+ 	soc {
++		compatible = "marvell,armadaxp-mbus", "simple-bus";
++
++		bootrom {
++			compatible = "marvell,bootrom";
++			reg = <MBUS_ID(0x01, 0x1d) 0 0x100000>;
++		};
++
+ 		internal-regs {
+ 			L2: l2-cache {
+ 				compatible = "marvell,aurora-system-cache";
+@@ -86,7 +97,7 @@
+ 				reg = <0x18200 0x500>;
+ 			};
+ 
+-			ethernet@30000 {
++			eth2: ethernet@30000 {
+ 				compatible = "marvell,armada-370-neta";
+ 				reg = <0x30000 0x4000>;
+ 				interrupts = <12>;
+diff --git a/arch/arm/boot/dts/kirkwood-6281.dtsi b/arch/arm/boot/dts/kirkwood-6281.dtsi
+index d6c9d65..3653ee2 100644
+--- a/arch/arm/boot/dts/kirkwood-6281.dtsi
++++ b/arch/arm/boot/dts/kirkwood-6281.dtsi
+@@ -1,4 +1,39 @@
+ / {
++	mbus {
++		pcie-controller {
++			compatible = "marvell,kirkwood-pcie";
++			status = "disabled";
++			device_type = "pci";
++
++			#address-cells = <3>;
++			#size-cells = <2>;
++
++			bus-range = <0x00 0xff>;
++
++			ranges =
++			       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000
++				0x82000000 0x1 0     MBUS_ID(0x04, 0xe8) 0       1 0 /* Port 0.0 MEM */
++				0x81000000 0x1 0     MBUS_ID(0x04, 0xe0) 0       1 0 /* Port 0.0 IO  */>;
++
++			pcie@1,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x00040000 0 0x2000>;
++				reg = <0x0800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x1 0 1 0
++					  0x81000000 0 0 0x81000000 0x1 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &intc 9>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gate_clk 2>;
++				status = "disabled";
++			};
++		};
++	};
++
+ 	ocp@f1000000 {
+ 		pinctrl: pinctrl@10000 {
+ 			compatible = "marvell,88f6281-pinctrl";
+diff --git a/arch/arm/boot/dts/kirkwood-6282.dtsi b/arch/arm/boot/dts/kirkwood-6282.dtsi
+index 23991e4..82741a7 100644
+--- a/arch/arm/boot/dts/kirkwood-6282.dtsi
++++ b/arch/arm/boot/dts/kirkwood-6282.dtsi
+@@ -1,4 +1,59 @@
+ / {
++	mbus {
++		pcie-controller {
++			compatible = "marvell,kirkwood-pcie";
++			status = "disabled";
++			device_type = "pci";
++
++			#address-cells = <3>;
++			#size-cells = <2>;
++
++			bus-range = <0x00 0xff>;
++
++			ranges =
++			       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000
++			        0x82000000 0 0x44000 MBUS_ID(0xf0, 0x01) 0x44000 0 0x00002000
++				0x82000000 0 0x80000 MBUS_ID(0xf0, 0x01) 0x80000 0 0x00002000
++				0x82000000 0x1 0     MBUS_ID(0x04, 0xe8) 0       1 0 /* Port 0.0 MEM */
++				0x81000000 0x1 0     MBUS_ID(0x04, 0xe0) 0       1 0 /* Port 0.0 IO  */
++				0x82000000 0x2 0     MBUS_ID(0x04, 0xd8) 0       1 0 /* Port 1.0 MEM */
++				0x81000000 0x2 0     MBUS_ID(0x04, 0xd0) 0       1 0 /* Port 1.0 IO  */>;
++
++			pcie@1,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x00040000 0 0x2000>;
++				reg = <0x0800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x1 0 1 0
++					  0x81000000 0 0 0x81000000 0x1 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &intc 9>;
++				marvell,pcie-port = <0>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gate_clk 2>;
++				status = "disabled";
++			};
++
++			pcie@2,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82001000 0 0x00044000 0 0x2000>;
++				reg = <0x1000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x2 0 1 0
++					  0x81000000 0 0 0x81000000 0x2 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &intc 10>;
++				marvell,pcie-port = <1>;
++				marvell,pcie-lane = <0>;
++				clocks = <&gate_clk 18>;
++				status = "disabled";
++			};
++		};
++	};
+ 	ocp@f1000000 {
+ 
+ 		pinctrl: pinctrl@10000 {
+diff --git a/arch/arm/boot/dts/kirkwood-cloudbox.dts b/arch/arm/boot/dts/kirkwood-cloudbox.dts
+index 5f21d4e..56d417d 100644
+--- a/arch/arm/boot/dts/kirkwood-cloudbox.dts
++++ b/arch/arm/boot/dts/kirkwood-cloudbox.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "LaCie CloudBox";
+diff --git a/arch/arm/boot/dts/kirkwood-dns320.dts b/arch/arm/boot/dts/kirkwood-dns320.dts
+index c9c44b2..a0439af 100644
+--- a/arch/arm/boot/dts/kirkwood-dns320.dts
++++ b/arch/arm/boot/dts/kirkwood-dns320.dts
+@@ -1,6 +1,6 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-dnskw.dtsi"
++#include "kirkwood-dnskw.dtsi"
+ 
+ / {
+ 	model = "D-Link DNS-320 NAS (Rev A1)";
+diff --git a/arch/arm/boot/dts/kirkwood-dns325.dts b/arch/arm/boot/dts/kirkwood-dns325.dts
+index e4e4930..e101ebd 100644
+--- a/arch/arm/boot/dts/kirkwood-dns325.dts
++++ b/arch/arm/boot/dts/kirkwood-dns325.dts
+@@ -1,6 +1,6 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-dnskw.dtsi"
++#include "kirkwood-dnskw.dtsi"
+ 
+ / {
+ 	model = "D-Link DNS-325 NAS (Rev A1)";
+diff --git a/arch/arm/boot/dts/kirkwood-dnskw.dtsi b/arch/arm/boot/dts/kirkwood-dnskw.dtsi
+index 6875ac0..2951128 100644
+--- a/arch/arm/boot/dts/kirkwood-dnskw.dtsi
++++ b/arch/arm/boot/dts/kirkwood-dnskw.dtsi
+@@ -1,5 +1,5 @@
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "D-Link DNS NASes (kirkwood-based)";
+diff --git a/arch/arm/boot/dts/kirkwood-dockstar.dts b/arch/arm/boot/dts/kirkwood-dockstar.dts
+index 0196cf6..5a3780d 100644
+--- a/arch/arm/boot/dts/kirkwood-dockstar.dts
++++ b/arch/arm/boot/dts/kirkwood-dockstar.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "Seagate FreeAgent Dockstar";
+diff --git a/arch/arm/boot/dts/kirkwood-dreamplug.dts b/arch/arm/boot/dts/kirkwood-dreamplug.dts
+index be16a84..f4f4651 100644
+--- a/arch/arm/boot/dts/kirkwood-dreamplug.dts
++++ b/arch/arm/boot/dts/kirkwood-dreamplug.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "Globalscale Technologies Dreamplug";
+diff --git a/arch/arm/boot/dts/kirkwood-goflexnet.dts b/arch/arm/boot/dts/kirkwood-goflexnet.dts
+index c3573be..92abf47 100644
+--- a/arch/arm/boot/dts/kirkwood-goflexnet.dts
++++ b/arch/arm/boot/dts/kirkwood-goflexnet.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "Seagate GoFlex Net";
+diff --git a/arch/arm/boot/dts/kirkwood-guruplug-server-plus.dts b/arch/arm/boot/dts/kirkwood-guruplug-server-plus.dts
+index 484a2a6..f43d3b0 100644
+--- a/arch/arm/boot/dts/kirkwood-guruplug-server-plus.dts
++++ b/arch/arm/boot/dts/kirkwood-guruplug-server-plus.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "Globalscale Technologies Guruplug Server Plus";
+diff --git a/arch/arm/boot/dts/kirkwood-ib62x0.dts b/arch/arm/boot/dts/kirkwood-ib62x0.dts
+index 5335b1a..f0dc12e 100644
+--- a/arch/arm/boot/dts/kirkwood-ib62x0.dts
++++ b/arch/arm/boot/dts/kirkwood-ib62x0.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "RaidSonic ICY BOX IB-NAS62x0 (Rev B)";
+diff --git a/arch/arm/boot/dts/kirkwood-iconnect.dts b/arch/arm/boot/dts/kirkwood-iconnect.dts
+index 12ccf74..4b95e4a 100644
+--- a/arch/arm/boot/dts/kirkwood-iconnect.dts
++++ b/arch/arm/boot/dts/kirkwood-iconnect.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "Iomega Iconnect";
+@@ -18,6 +18,17 @@
+ 		linux,initrd-end   = <0x4800000>;
+ 	};
+ 
++	mbus {
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000>;
++		pcie-controller {
++			status = "okay";
++
++			pcie@1,0 {
++				status = "okay";
++			};
++		};
++	};
++
+ 	ocp@f1000000 {
+ 		pinctrl: pinctrl@10000 {
+ 
+diff --git a/arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts b/arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts
+index 3694e94..a426cf3 100644
+--- a/arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts
++++ b/arch/arm/boot/dts/kirkwood-iomega_ix2_200.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "Iomega StorCenter ix2-200";
+diff --git a/arch/arm/boot/dts/kirkwood-is2.dts b/arch/arm/boot/dts/kirkwood-is2.dts
+index 0bdce0a..2d6403c 100644
+--- a/arch/arm/boot/dts/kirkwood-is2.dts
++++ b/arch/arm/boot/dts/kirkwood-is2.dts
+@@ -1,6 +1,6 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-ns2-common.dtsi"
++#include "kirkwood-ns2-common.dtsi"
+ 
+ / {
+ 	model = "LaCie Internet Space v2";
+diff --git a/arch/arm/boot/dts/kirkwood-km_kirkwood.dts b/arch/arm/boot/dts/kirkwood-km_kirkwood.dts
+index 5bbd054..4374365 100644
+--- a/arch/arm/boot/dts/kirkwood-km_kirkwood.dts
++++ b/arch/arm/boot/dts/kirkwood-km_kirkwood.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-98dx4122.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-98dx4122.dtsi"
+ 
+ / {
+ 	model = "Keymile Kirkwood Reference Design";
+diff --git a/arch/arm/boot/dts/kirkwood-lschlv2.dts b/arch/arm/boot/dts/kirkwood-lschlv2.dts
+index 9f55d95..e2fa368 100644
+--- a/arch/arm/boot/dts/kirkwood-lschlv2.dts
++++ b/arch/arm/boot/dts/kirkwood-lschlv2.dts
+@@ -1,6 +1,6 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-lsxl.dtsi"
++#include "kirkwood-lsxl.dtsi"
+ 
+ / {
+ 	model = "Buffalo Linkstation LS-CHLv2";
+diff --git a/arch/arm/boot/dts/kirkwood-lsxhl.dts b/arch/arm/boot/dts/kirkwood-lsxhl.dts
+index 5c84c11..8d89cdf 100644
+--- a/arch/arm/boot/dts/kirkwood-lsxhl.dts
++++ b/arch/arm/boot/dts/kirkwood-lsxhl.dts
+@@ -1,6 +1,6 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-lsxl.dtsi"
++#include "kirkwood-lsxl.dtsi"
+ 
+ / {
+ 	model = "Buffalo Linkstation LS-XHL";
+diff --git a/arch/arm/boot/dts/kirkwood-lsxl.dtsi b/arch/arm/boot/dts/kirkwood-lsxl.dtsi
+index 37d45c4..948d2fd 100644
+--- a/arch/arm/boot/dts/kirkwood-lsxl.dtsi
++++ b/arch/arm/boot/dts/kirkwood-lsxl.dtsi
+@@ -1,5 +1,5 @@
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	chosen {
+diff --git a/arch/arm/boot/dts/kirkwood-mplcec4.dts b/arch/arm/boot/dts/kirkwood-mplcec4.dts
+index bf3a58c..6bff584 100644
+--- a/arch/arm/boot/dts/kirkwood-mplcec4.dts
++++ b/arch/arm/boot/dts/kirkwood-mplcec4.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "MPL CEC4";
+@@ -16,6 +16,17 @@
+                 bootargs = "console=ttyS0,115200n8 earlyprintk";
+         };
+ 
++	mbus {
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000>;
++		pcie-controller {
++			status = "okay";
++
++			pcie@1,0 {
++				status = "okay";
++			};
++		};
++	};
++
+ 	ocp@f1000000 {
+ 		pinctrl: pinctrl@10000 {
+ 
+diff --git a/arch/arm/boot/dts/kirkwood-netgear_readynas_duo_v2.dts b/arch/arm/boot/dts/kirkwood-netgear_readynas_duo_v2.dts
+index 1ca66ab..2dbc346 100644
+--- a/arch/arm/boot/dts/kirkwood-netgear_readynas_duo_v2.dts
++++ b/arch/arm/boot/dts/kirkwood-netgear_readynas_duo_v2.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6282.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6282.dtsi"
+ 
+ / {
+ 	model = "NETGEAR ReadyNAS Duo v2";
+@@ -16,6 +16,17 @@
+ 		bootargs = "console=ttyS0,115200n8 earlyprintk";
+ 	};
+ 
++	mbus {
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000>;
++		pcie-controller {
++			status = "okay";
++
++			pcie@1,0 {
++				status = "okay";
++			};
++		};
++	};
++
+ 	ocp@f1000000 {
+ 		pinctrl: pinctrl@10000 {
+ 
+diff --git a/arch/arm/boot/dts/kirkwood-ns2-common.dtsi b/arch/arm/boot/dts/kirkwood-ns2-common.dtsi
+index 6affd92..5984e03 100644
+--- a/arch/arm/boot/dts/kirkwood-ns2-common.dtsi
++++ b/arch/arm/boot/dts/kirkwood-ns2-common.dtsi
+@@ -1,5 +1,5 @@
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	chosen {
+diff --git a/arch/arm/boot/dts/kirkwood-ns2.dts b/arch/arm/boot/dts/kirkwood-ns2.dts
+index f2d36ec..94c1c79 100644
+--- a/arch/arm/boot/dts/kirkwood-ns2.dts
++++ b/arch/arm/boot/dts/kirkwood-ns2.dts
+@@ -1,6 +1,6 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-ns2-common.dtsi"
++#include "kirkwood-ns2-common.dtsi"
+ 
+ / {
+ 	model = "LaCie Network Space v2";
+diff --git a/arch/arm/boot/dts/kirkwood-ns2lite.dts b/arch/arm/boot/dts/kirkwood-ns2lite.dts
+index b02eb4e..5afdf68 100644
+--- a/arch/arm/boot/dts/kirkwood-ns2lite.dts
++++ b/arch/arm/boot/dts/kirkwood-ns2lite.dts
+@@ -1,6 +1,6 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-ns2-common.dtsi"
++#include "kirkwood-ns2-common.dtsi"
+ 
+ / {
+ 	model = "LaCie Network Space Lite v2";
+diff --git a/arch/arm/boot/dts/kirkwood-ns2max.dts b/arch/arm/boot/dts/kirkwood-ns2max.dts
+index bcec4d6..39703ff 100644
+--- a/arch/arm/boot/dts/kirkwood-ns2max.dts
++++ b/arch/arm/boot/dts/kirkwood-ns2max.dts
+@@ -1,6 +1,6 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-ns2-common.dtsi"
++#include "kirkwood-ns2-common.dtsi"
+ 
+ / {
+ 	model = "LaCie Network Space Max v2";
+diff --git a/arch/arm/boot/dts/kirkwood-ns2mini.dts b/arch/arm/boot/dts/kirkwood-ns2mini.dts
+index adab1ab..d810c6e 100644
+--- a/arch/arm/boot/dts/kirkwood-ns2mini.dts
++++ b/arch/arm/boot/dts/kirkwood-ns2mini.dts
+@@ -1,6 +1,6 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-ns2-common.dtsi"
++#include "kirkwood-ns2-common.dtsi"
+ 
+ / {
+ 	/* This machine is embedded in the first LaCie CloudBox product. */
+diff --git a/arch/arm/boot/dts/kirkwood-nsa310.dts b/arch/arm/boot/dts/kirkwood-nsa310.dts
+index a7412b9..bd7f05f 100644
+--- a/arch/arm/boot/dts/kirkwood-nsa310.dts
++++ b/arch/arm/boot/dts/kirkwood-nsa310.dts
+@@ -1,6 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
+ 
+ / {
+ 	model = "ZyXEL NSA310";
+@@ -15,24 +16,20 @@
+ 		bootargs = "console=ttyS0,115200";
+ 	};
+ 
++	mbus {
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000>;
++		pcie-controller {
++			status = "okay";
++
++			pcie@1,0 {
++				status = "okay";
++			};
++		};
++	};
++
+ 	ocp@f1000000 {
+ 		pinctrl: pinctrl@10000 {
+-			pinctrl-0 = < &pmx_led_esata_green
+-				      &pmx_led_esata_red
+-				      &pmx_led_usb_green
+-				      &pmx_led_usb_red
+-				      &pmx_usb_power_off
+-				      &pmx_led_sys_green
+-				      &pmx_led_sys_red
+-				      &pmx_btn_reset
+-				      &pmx_btn_copy
+-				      &pmx_led_copy_green
+-				      &pmx_led_copy_red
+-				      &pmx_led_hdd_green
+-				      &pmx_led_hdd_red
+-				      &pmx_unknown
+-				      &pmx_btn_power
+-				      &pmx_pwr_off >;
++			pinctrl-0 = <&pmx_unknown>;
+ 			pinctrl-names = "default";
+ 
+ 			pmx_led_esata_green: pmx-led-esata-green {
+@@ -182,6 +179,8 @@
+ 		compatible = "gpio-keys";
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
++		pinctrl-0 = <&pmx_btn_reset &pmx_btn_copy &pmx_btn_power>;
++		pinctrl-names = "default";
+ 
+ 		button@1 {
+ 			label = "Power Button";
+@@ -202,6 +201,12 @@
+ 
+ 	gpio-leds {
+ 		compatible = "gpio-leds";
++		pinctrl-0 = <&pmx_led_esata_green &pmx_led_esata_red
++			     &pmx_led_usb_green &pmx_led_usb_red
++			     &pmx_led_sys_green &pmx_led_sys_red
++			     &pmx_led_copy_green &pmx_led_copy_red
++			     &pmx_led_hdd_green &pmx_led_hdd_red>;
++		pinctrl-names = "default";
+ 
+ 		green-sys {
+ 			label = "nsa310:green:sys";
+@@ -247,6 +252,8 @@
+ 
+ 	gpio_poweroff {
+ 		compatible = "gpio-poweroff";
++		pinctrl-0 = <&pmx_pwr_off>;
++		pinctrl-names = "default";
+ 		gpios = <&gpio1 16 0>;
+ 	};
+ 
+@@ -254,6 +261,8 @@
+ 		compatible = "simple-bus";
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
++		pinctrl-0 = <&pmx_usb_power_off>;
++		pinctrl-names = "default";
+ 
+ 		usb0_power_off: regulator@1 {
+ 			compatible = "regulator-fixed";
+diff --git a/arch/arm/boot/dts/kirkwood-openblocks_a6.dts b/arch/arm/boot/dts/kirkwood-openblocks_a6.dts
+index d27f724..8f86768 100644
+--- a/arch/arm/boot/dts/kirkwood-openblocks_a6.dts
++++ b/arch/arm/boot/dts/kirkwood-openblocks_a6.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6282.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6282.dtsi"
+ 
+ / {
+ 	model = "Plat'Home OpenBlocksA6";
+diff --git a/arch/arm/boot/dts/kirkwood-topkick.dts b/arch/arm/boot/dts/kirkwood-topkick.dts
+index 7dc14f4..3e0b603 100644
+--- a/arch/arm/boot/dts/kirkwood-topkick.dts
++++ b/arch/arm/boot/dts/kirkwood-topkick.dts
+@@ -1,7 +1,7 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood.dtsi"
+-/include/ "kirkwood-6282.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6282.dtsi"
+ 
+ / {
+ 	model = "Univeral Scientific Industrial Co. Topkick-1281P2";
+diff --git a/arch/arm/boot/dts/kirkwood-ts219-6281.dts b/arch/arm/boot/dts/kirkwood-ts219-6281.dts
+index 8295c83..3867ae3 100644
+--- a/arch/arm/boot/dts/kirkwood-ts219-6281.dts
++++ b/arch/arm/boot/dts/kirkwood-ts219-6281.dts
+@@ -1,16 +1,14 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-ts219.dtsi"
+-/include/ "kirkwood-6281.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6281.dtsi"
++#include "kirkwood-ts219.dtsi"
+ 
+ / {
+ 	ocp@f1000000 {
+ 		pinctrl: pinctrl@10000 {
+ 
+-			pinctrl-0 = < &pmx_uart0 &pmx_uart1 &pmx_spi
+-				      &pmx_twsi0 &pmx_sata0 &pmx_sata1
+-				      &pmx_ram_size &pmx_reset_button
+-				      &pmx_USB_copy_button &pmx_board_id>;
++			pinctrl-0 = <&pmx_ram_size &pmx_board_id>;
+ 			pinctrl-names = "default";
+ 
+ 			pmx_ram_size: pmx-ram-size {
+@@ -38,6 +36,9 @@
+ 		compatible = "gpio-keys";
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
++		pinctrl-0 = <&pmx_reset_button &pmx_USB_copy_button>;
++		pinctrl-names = "default";
++
+ 		button@1 {
+ 			label = "USB Copy";
+ 			linux,code = <133>;
+diff --git a/arch/arm/boot/dts/kirkwood-ts219-6282.dts b/arch/arm/boot/dts/kirkwood-ts219-6282.dts
+index df3f95d..04f6fe1 100644
+--- a/arch/arm/boot/dts/kirkwood-ts219-6282.dts
++++ b/arch/arm/boot/dts/kirkwood-ts219-6282.dts
+@@ -1,16 +1,25 @@
+ /dts-v1/;
+ 
+-/include/ "kirkwood-ts219.dtsi"
+-/include/ "kirkwood-6282.dtsi"
++#include "kirkwood.dtsi"
++#include "kirkwood-6282.dtsi"
++#include "kirkwood-ts219.dtsi"
+ 
+ / {
++	mbus {
++		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000>;
++		pcie-controller {
++			status = "okay";
++
++			pcie@2,0 {
++				status = "okay";
++			};
++		};
++	};
++
+ 	ocp@f1000000 {
+ 		pinctrl: pinctrl@10000 {
+ 
+-			pinctrl-0 = < &pmx_uart0 &pmx_uart1 &pmx_spi
+-				      &pmx_twsi0 &pmx_sata0 &pmx_sata1
+-				      &pmx_ram_size &pmx_reset_button
+-				      &pmx_USB_copy_button &pmx_board_id>;
++			pinctrl-0 = <&pmx_ram_size &pmx_board_id>;
+ 			pinctrl-names = "default";
+ 
+ 			pmx_ram_size: pmx-ram-size {
+@@ -38,6 +47,9 @@
+ 		compatible = "gpio-keys";
+ 		#address-cells = <1>;
+ 		#size-cells = <0>;
++		pinctrl-0 = <&pmx_reset_button &pmx_USB_copy_button>;
++		pinctrl-names = "default";
++
+ 		button@1 {
+ 			label = "USB Copy";
+ 			linux,code = <133>;
+diff --git a/arch/arm/boot/dts/kirkwood-ts219.dtsi b/arch/arm/boot/dts/kirkwood-ts219.dtsi
+index 64ea27c..eb506ad 100644
+--- a/arch/arm/boot/dts/kirkwood-ts219.dtsi
++++ b/arch/arm/boot/dts/kirkwood-ts219.dtsi
+@@ -13,6 +13,16 @@
+ 		bootargs = "console=ttyS0,115200n8";
+ 	};
+ 
++	mbus {
++		pcie-controller {
++			status = "okay";
++
++			pcie@1,0 {
++				status = "okay";
++			};
++		};
++	};
++
+ 	ocp@f1000000 {
+ 		i2c@11000 {
+ 			status = "okay";
+diff --git a/arch/arm/boot/dts/kirkwood.dtsi b/arch/arm/boot/dts/kirkwood.dtsi
+index e2a28db..399aed2 100644
+--- a/arch/arm/boot/dts/kirkwood.dtsi
++++ b/arch/arm/boot/dts/kirkwood.dtsi
+@@ -1,5 +1,7 @@
+ /include/ "skeleton.dtsi"
+ 
++#define MBUS_ID(target,attributes) (((target) << 24) | ((attributes) << 16))
++
+ / {
+ 	compatible = "marvell,kirkwood";
+ 	interrupt-parent = <&intc>;
+@@ -16,6 +18,15 @@
+ 		      <0xf1020214 0x04>;
+ 	};
+ 
++	mbus {
++		compatible = "marvell,kirkwood-mbus", "simple-bus";
++		#address-cells = <2>;
++		#size-cells = <1>;
++		controller = <&mbusc>;
++		pcie-mem-aperture = <0xe0000000 0x10000000>; /* 256 MiB memory space */
++		pcie-io-aperture  = <0xf2000000 0x100000>;   /*   1 MiB    I/O space */
++	};
++
+ 	ocp@f1000000 {
+ 		compatible = "simple-bus";
+ 		ranges = <0x00000000 0xf1000000 0x4000000
+@@ -23,6 +34,11 @@
+ 		#address-cells = <1>;
+ 		#size-cells = <1>;
+ 
++		mbusc: mbus-controller@20000 {
++			compatible = "marvell,mbus-controller";
++			reg = <0x20000 0x80>, <0x1500 0x20>;
++		};
++
+ 		core_clk: core-clocks@10030 {
+ 			compatible = "marvell,kirkwood-core-clock";
+ 			reg = <0x10030 0x4>;
+diff --git a/arch/arm/include/asm/mach/pci.h b/arch/arm/include/asm/mach/pci.h
+index 7d2c3c8..0279cd4 100644
+--- a/arch/arm/include/asm/mach/pci.h
++++ b/arch/arm/include/asm/mach/pci.h
+@@ -35,6 +35,8 @@ struct hw_pci {
+ 					  resource_size_t start,
+ 					  resource_size_t size,
+ 					  resource_size_t align);
++	void		(*add_bus)(struct pci_bus *bus);
++	void		(*remove_bus)(struct pci_bus *bus);
+ };
+ 
+ /*
+@@ -62,6 +64,8 @@ struct pci_sys_data {
+ 					  resource_size_t start,
+ 					  resource_size_t size,
+ 					  resource_size_t align);
++	void		(*add_bus)(struct pci_bus *bus);
++	void		(*remove_bus)(struct pci_bus *bus);
+ 	void		*private_data;	/* platform controller private data	*/
+ };
+ 
+diff --git a/arch/arm/kernel/bios32.c b/arch/arm/kernel/bios32.c
+index b2ed73c..b0024b2 100644
+--- a/arch/arm/kernel/bios32.c
++++ b/arch/arm/kernel/bios32.c
+@@ -363,6 +363,20 @@ void pcibios_fixup_bus(struct pci_bus *bus)
+ }
+ EXPORT_SYMBOL(pcibios_fixup_bus);
+ 
++void pcibios_add_bus(struct pci_bus *bus)
++{
++	struct pci_sys_data *sys = bus->sysdata;
++	if (sys->add_bus)
++		sys->add_bus(bus);
++}
++
++void pcibios_remove_bus(struct pci_bus *bus)
++{
++	struct pci_sys_data *sys = bus->sysdata;
++	if (sys->remove_bus)
++		sys->remove_bus(bus);
++}
++
+ /*
+  * Swizzle the device pin each time we cross a bridge.  If a platform does
+  * not provide a swizzle function, we perform the standard PCI swizzling.
+@@ -463,6 +477,8 @@ static void pcibios_init_hw(struct hw_pci *hw, struct list_head *head)
+ 		sys->swizzle = hw->swizzle;
+ 		sys->map_irq = hw->map_irq;
+ 		sys->align_resource = hw->align_resource;
++		sys->add_bus = hw->add_bus;
++		sys->remove_bus = hw->remove_bus;
+ 		INIT_LIST_HEAD(&sys->resources);
+ 
+ 		if (hw->private_data)
+diff --git a/arch/arm/mach-kirkwood/board-dt.c b/arch/arm/mach-kirkwood/board-dt.c
+index e9647b8..343dcfb 100644
+--- a/arch/arm/mach-kirkwood/board-dt.c
++++ b/arch/arm/mach-kirkwood/board-dt.c
+@@ -93,6 +93,7 @@ static void __init kirkwood_dt_init(void)
+ 	 */
+ 	writel(readl(CPU_CONFIG) & ~CPU_CONFIG_ERROR_PROP, CPU_CONFIG);
+ 
++	BUG_ON(mvebu_mbus_dt_init());
+ 	kirkwood_setup_wins();
+ 
+ 	kirkwood_l2_init();
+diff --git a/arch/arm/mach-kirkwood/common.c b/arch/arm/mach-kirkwood/common.c
+index f389228..4f01003 100644
+--- a/arch/arm/mach-kirkwood/common.c
++++ b/arch/arm/mach-kirkwood/common.c
+@@ -527,10 +527,6 @@ void __init kirkwood_cpuidle_init(void)
+ void __init kirkwood_init_early(void)
+ {
+ 	orion_time_set_base(TIMER_VIRT_BASE);
+-
+-	mvebu_mbus_init("marvell,kirkwood-mbus",
+-			BRIDGE_WINS_BASE, BRIDGE_WINS_SZ,
+-			DDR_WINDOW_CPU_BASE, DDR_WINDOW_CPU_SZ);
+ }
+ 
+ int kirkwood_tclk;
+@@ -703,6 +699,10 @@ void __init kirkwood_init(void)
+ 	 */
+ 	writel(readl(CPU_CONFIG) & ~CPU_CONFIG_ERROR_PROP, CPU_CONFIG);
+ 
++	BUG_ON(mvebu_mbus_init("marvell,kirkwood-mbus",
++			BRIDGE_WINS_BASE, BRIDGE_WINS_SZ,
++			DDR_WINDOW_CPU_BASE, DDR_WINDOW_CPU_SZ));
++
+ 	kirkwood_setup_wins();
+ 
+ 	kirkwood_l2_init();
+diff --git a/arch/arm/mach-mvebu/Kconfig b/arch/arm/mach-mvebu/Kconfig
+index fb827ac..f1194f4 100644
+--- a/arch/arm/mach-mvebu/Kconfig
++++ b/arch/arm/mach-mvebu/Kconfig
+@@ -13,6 +13,7 @@ config ARCH_MVEBU
+ 	select MVEBU_CLK_CORE
+ 	select MVEBU_CLK_CPU
+ 	select MVEBU_CLK_GATING
++	select MVEBU_CLK_COREDIV
+ 	select MVEBU_MBUS
+ 	select ZONE_DMA if ARM_LPAE
+ 	select ARCH_REQUIRE_GPIOLIB
+diff --git a/arch/arm/mach-mvebu/armada-370-xp.c b/arch/arm/mach-mvebu/armada-370-xp.c
+index 9148c45..13e9f62 100644
+--- a/arch/arm/mach-mvebu/armada-370-xp.c
++++ b/arch/arm/mach-mvebu/armada-370-xp.c
+@@ -17,7 +17,7 @@
+ #include <linux/of_address.h>
+ #include <linux/of_platform.h>
+ #include <linux/io.h>
+-#include <linux/time-armada-370-xp.h>
++#include <linux/clocksource.h>
+ #include <linux/clk/mvebu.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/mbus.h>
+@@ -35,44 +35,12 @@ static void __init armada_370_xp_map_io(void)
+ 	debug_ll_io_init();
+ }
+ 
+-/*
+- * This initialization will be replaced by a DT-based
+- * initialization once the mvebu-mbus driver gains DT support.
+- */
+-
+-#define ARMADA_370_XP_MBUS_WINS_OFFS   0x20000
+-#define ARMADA_370_XP_MBUS_WINS_SIZE   0x100
+-#define ARMADA_370_XP_SDRAM_WINS_OFFS  0x20180
+-#define ARMADA_370_XP_SDRAM_WINS_SIZE  0x20
+-
+-static void __init armada_370_xp_mbus_init(void)
+-{
+-	char *mbus_soc_name;
+-	struct device_node *dn;
+-	const __be32 mbus_wins_offs = cpu_to_be32(ARMADA_370_XP_MBUS_WINS_OFFS);
+-	const __be32 sdram_wins_offs = cpu_to_be32(ARMADA_370_XP_SDRAM_WINS_OFFS);
+-
+-	if (of_machine_is_compatible("marvell,armada370"))
+-		mbus_soc_name = "marvell,armada370-mbus";
+-	else
+-		mbus_soc_name = "marvell,armadaxp-mbus";
+-
+-	dn = of_find_node_by_name(NULL, "internal-regs");
+-	BUG_ON(!dn);
+-
+-	mvebu_mbus_init(mbus_soc_name,
+-			of_translate_address(dn, &mbus_wins_offs),
+-			ARMADA_370_XP_MBUS_WINS_SIZE,
+-			of_translate_address(dn, &sdram_wins_offs),
+-			ARMADA_370_XP_SDRAM_WINS_SIZE);
+-}
+-
+ static void __init armada_370_xp_timer_and_clk_init(void)
+ {
+ 	mvebu_clocks_init();
+-	armada_370_xp_timer_init();
++	clocksource_of_init();
+ 	coherency_init();
+-	armada_370_xp_mbus_init();
++	BUG_ON(mvebu_mbus_dt_init());
+ #ifdef CONFIG_CACHE_L2X0
+ 	l2x0_of_init(0, ~0UL);
+ #endif
+diff --git a/arch/arm/mach-mvebu/platsmp.c b/arch/arm/mach-mvebu/platsmp.c
+index 93f2f3a..864bd83 100644
+--- a/arch/arm/mach-mvebu/platsmp.c
++++ b/arch/arm/mach-mvebu/platsmp.c
+@@ -21,6 +21,7 @@
+ #include <linux/smp.h>
+ #include <linux/clk.h>
+ #include <linux/of.h>
++#include <linux/of_address.h>
+ #include <linux/mbus.h>
+ #include <asm/cacheflush.h>
+ #include <asm/smp_plat.h>
+@@ -29,6 +30,9 @@
+ #include "pmsu.h"
+ #include "coherency.h"
+ 
++#define AXP_BOOTROM_BASE 0xfff00000
++#define AXP_BOOTROM_SIZE 0x100000
++
+ void __init set_secondary_cpus_clock(void)
+ {
+ 	int thiscpu;
+@@ -115,10 +119,29 @@ static void __init armada_xp_smp_init_cpus(void)
+ 
+ void __init armada_xp_smp_prepare_cpus(unsigned int max_cpus)
+ {
++	struct device_node *node;
++	struct resource res;
++	int err;
++
+ 	set_secondary_cpus_clock();
+ 	flush_cache_all();
+ 	set_cpu_coherent(cpu_logical_map(smp_processor_id()), 0);
+-	mvebu_mbus_add_window("bootrom", 0xfff00000, SZ_1M);
++
++	/*
++	 * In order to boot the secondary CPUs we need to ensure
++	 * the bootROM is mapped at the correct address.
++	 */
++	node = of_find_compatible_node(NULL, NULL, "marvell,bootrom");
++	if (!node)
++		panic("Cannot find 'marvell,bootrom' compatible node");
++
++	err = of_address_to_resource(node, 0, &res);
++	if (err < 0)
++		panic("Cannot get 'bootrom' node address");
++
++	if (res.start != AXP_BOOTROM_BASE ||
++	    resource_size(&res) != AXP_BOOTROM_SIZE)
++		panic("The address for the BootROM is incorrect");
+ }
+ 
+ struct smp_operations armada_xp_smp_ops __initdata = {
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 1a2b774..943d425 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -9,7 +9,6 @@ config IA64
+ 	select PCI if (!IA64_HP_SIM)
+ 	select ACPI if (!IA64_HP_SIM)
+ 	select PM if (!IA64_HP_SIM)
+-	select ARCH_SUPPORTS_MSI
+ 	select HAVE_UNSTABLE_SCHED_CLOCK
+ 	select HAVE_IDE
+ 	select HAVE_OPROFILE
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index 65d9d24..eeaf695 100644
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -764,7 +764,6 @@ config CAVIUM_OCTEON_REFERENCE_BOARD
+ 	select SYS_HAS_CPU_CAVIUM_OCTEON
+ 	select SWAP_IO_SPACE
+ 	select HW_HAS_PCI
+-	select ARCH_SUPPORTS_MSI
+ 	select ZONE_DMA32
+ 	select USB_ARCH_HAS_OHCI
+ 	select USB_ARCH_HAS_EHCI
+@@ -800,7 +799,6 @@ config NLM_XLR_BOARD
+ 	select CEVT_R4K
+ 	select CSRC_R4K
+ 	select IRQ_CPU
+-	select ARCH_SUPPORTS_MSI
+ 	select ZONE_DMA32 if 64BIT
+ 	select SYNC_R4K
+ 	select SYS_HAS_EARLY_PRINTK
+diff --git a/arch/mips/include/asm/pci.h b/arch/mips/include/asm/pci.h
+index b8e24fd..031f4c1 100644
+--- a/arch/mips/include/asm/pci.h
++++ b/arch/mips/include/asm/pci.h
+@@ -137,11 +137,6 @@ static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+ 	return channel ? 15 : 14;
+ }
+ 
+-#ifdef CONFIG_CPU_CAVIUM_OCTEON
+-/* MSI arch hook for OCTEON */
+-#define arch_setup_msi_irqs arch_setup_msi_irqs
+-#endif
+-
+ extern char * (*pcibios_plat_setup)(char *str);
+ 
+ #ifdef CONFIG_OF
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index fe404e7..b4697de 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -734,7 +734,6 @@ config PCI
+ 	default y if !40x && !CPM2 && !8xx && !PPC_83xx \
+ 		&& !PPC_85xx && !PPC_86xx && !GAMECUBE_COMMON
+ 	default PCI_QSPAN if !4xx && !CPM2 && 8xx
+-	select ARCH_SUPPORTS_MSI
+ 	select GENERIC_PCI_IOMAP
+ 	help
+ 	  Find out whether your system includes a PCI bus. PCI is the name of
+diff --git a/arch/powerpc/include/asm/pci.h b/arch/powerpc/include/asm/pci.h
+index 6653f27..95145a1 100644
+--- a/arch/powerpc/include/asm/pci.h
++++ b/arch/powerpc/include/asm/pci.h
+@@ -113,11 +113,6 @@ extern int pci_domain_nr(struct pci_bus *bus);
+ /* Decide whether to display the domain number in /proc */
+ extern int pci_proc_domain(struct pci_bus *bus);
+ 
+-/* MSI arch hooks */
+-#define arch_setup_msi_irqs arch_setup_msi_irqs
+-#define arch_teardown_msi_irqs arch_teardown_msi_irqs
+-#define arch_msi_check_device arch_msi_check_device
+-
+ struct vm_area_struct;
+ /* Map a range of PCI memory or I/O space for a device into user space */
+ int pci_mmap_page_range(struct pci_dev *pdev, struct vm_area_struct *vma,
+diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
+index 97dcbea..8ec5c8d 100644
+--- a/arch/s390/Kconfig
++++ b/arch/s390/Kconfig
+@@ -430,7 +430,6 @@ menuconfig PCI
+ 	bool "PCI support"
+ 	default n
+ 	depends on 64BIT
+-	select ARCH_SUPPORTS_MSI
+ 	select PCI_MSI
+ 	help
+ 	  Enable PCI support.
+diff --git a/arch/s390/include/asm/pci.h b/arch/s390/include/asm/pci.h
+index 6c18012..8641e8d 100644
+--- a/arch/s390/include/asm/pci.h
++++ b/arch/s390/include/asm/pci.h
+@@ -21,10 +21,6 @@ void pci_iounmap(struct pci_dev *, void __iomem *);
+ int pci_domain_nr(struct pci_bus *);
+ int pci_proc_domain(struct pci_bus *);
+ 
+-/* MSI arch hooks */
+-#define arch_setup_msi_irqs	arch_setup_msi_irqs
+-#define arch_teardown_msi_irqs	arch_teardown_msi_irqs
+-
+ #define ZPCI_BUS_NR			0	/* default bus number */
+ #define ZPCI_DEVFN			0	/* default device number */
+ 
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index 9ac9f16..822e1a1 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -52,7 +52,6 @@ config SPARC32
+ 
+ config SPARC64
+ 	def_bool 64BIT
+-	select ARCH_SUPPORTS_MSI
+ 	select HAVE_FUNCTION_TRACER
+ 	select HAVE_FUNCTION_GRAPH_TRACER
+ 	select HAVE_FUNCTION_GRAPH_FP_TEST
+diff --git a/arch/tile/Kconfig b/arch/tile/Kconfig
+index 3aa3766..d2d519c 100644
+--- a/arch/tile/Kconfig
++++ b/arch/tile/Kconfig
+@@ -379,7 +379,6 @@ config PCI
+ 	select PCI_DOMAINS
+ 	select GENERIC_PCI_IOMAP
+ 	select TILE_GXIO_TRIO if TILEGX
+-	select ARCH_SUPPORTS_MSI if TILEGX
+ 	select PCI_MSI if TILEGX
+ 	---help---
+ 	  Enable PCI root complex support, so PCIe endpoint devices can
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index fe120da..814c7f3 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -1999,7 +1999,6 @@ menu "Bus options (PCI etc.)"
+ config PCI
+ 	bool "PCI support"
+ 	default y
+-	select ARCH_SUPPORTS_MSI if (X86_LOCAL_APIC && X86_IO_APIC)
+ 	---help---
+ 	  Find out whether you have a PCI motherboard. PCI is the name of a
+ 	  bus system, i.e. the way the CPU talks to the other stuff inside
+diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
+index d9e9e6c..7d74432 100644
+--- a/arch/x86/include/asm/pci.h
++++ b/arch/x86/include/asm/pci.h
+@@ -100,29 +100,6 @@ static inline void early_quirks(void) { }
+ extern void pci_iommu_alloc(void);
+ 
+ #ifdef CONFIG_PCI_MSI
+-/* MSI arch specific hooks */
+-static inline int x86_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+-{
+-	return x86_msi.setup_msi_irqs(dev, nvec, type);
+-}
+-
+-static inline void x86_teardown_msi_irqs(struct pci_dev *dev)
+-{
+-	x86_msi.teardown_msi_irqs(dev);
+-}
+-
+-static inline void x86_teardown_msi_irq(unsigned int irq)
+-{
+-	x86_msi.teardown_msi_irq(irq);
+-}
+-static inline void x86_restore_msi_irqs(struct pci_dev *dev, int irq)
+-{
+-	x86_msi.restore_msi_irqs(dev, irq);
+-}
+-#define arch_setup_msi_irqs x86_setup_msi_irqs
+-#define arch_teardown_msi_irqs x86_teardown_msi_irqs
+-#define arch_teardown_msi_irq x86_teardown_msi_irq
+-#define arch_restore_msi_irqs x86_restore_msi_irqs
+ /* implemented in arch/x86/kernel/apic/io_apic. */
+ struct msi_desc;
+ int native_setup_msi_irqs(struct pci_dev *dev, int nvec, int type);
+@@ -130,16 +107,9 @@ void native_teardown_msi_irq(unsigned int irq);
+ void native_restore_msi_irqs(struct pci_dev *dev, int irq);
+ int setup_msi_irq(struct pci_dev *dev, struct msi_desc *msidesc,
+ 		  unsigned int irq_base, unsigned int irq_offset);
+-/* default to the implementation in drivers/lib/msi.c */
+-#define HAVE_DEFAULT_MSI_TEARDOWN_IRQS
+-#define HAVE_DEFAULT_MSI_RESTORE_IRQS
+-void default_teardown_msi_irqs(struct pci_dev *dev);
+-void default_restore_msi_irqs(struct pci_dev *dev, int irq);
+ #else
+ #define native_setup_msi_irqs		NULL
+ #define native_teardown_msi_irq		NULL
+-#define default_teardown_msi_irqs	NULL
+-#define default_restore_msi_irqs	NULL
+ #endif
+ 
+ #define PCI_DMA_BUS_IS_PHYS (dma_ops->is_phys)
+diff --git a/arch/x86/kernel/x86_init.c b/arch/x86/kernel/x86_init.c
+index 45a14db..5587f99 100644
+--- a/arch/x86/kernel/x86_init.c
++++ b/arch/x86/kernel/x86_init.c
+@@ -107,6 +107,8 @@ struct x86_platform_ops x86_platform = {
+ };
+ 
+ EXPORT_SYMBOL_GPL(x86_platform);
++
++#if defined(CONFIG_PCI_MSI)
+ struct x86_msi_ops x86_msi = {
+ 	.setup_msi_irqs		= native_setup_msi_irqs,
+ 	.compose_msi_msg	= native_compose_msi_msg,
+@@ -116,6 +118,28 @@ struct x86_msi_ops x86_msi = {
+ 	.setup_hpet_msi		= default_setup_hpet_msi,
+ };
+ 
++/* MSI arch specific hooks */
++int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
++{
++	return x86_msi.setup_msi_irqs(dev, nvec, type);
++}
++
++void arch_teardown_msi_irqs(struct pci_dev *dev)
++{
++	x86_msi.teardown_msi_irqs(dev);
++}
++
++void arch_teardown_msi_irq(unsigned int irq)
++{
++	x86_msi.teardown_msi_irq(irq);
++}
++
++void arch_restore_msi_irqs(struct pci_dev *dev, int irq)
++{
++	x86_msi.restore_msi_irqs(dev, irq);
++}
++#endif
++
+ struct x86_io_apic_ops x86_io_apic_ops = {
+ 	.init			= native_io_apic_init_mappings,
+ 	.read			= native_io_apic_read,
+diff --git a/drivers/clk/mvebu/Kconfig b/drivers/clk/mvebu/Kconfig
+index 57323fd..71f0fde 100644
+--- a/drivers/clk/mvebu/Kconfig
++++ b/drivers/clk/mvebu/Kconfig
+@@ -6,3 +6,6 @@ config MVEBU_CLK_CPU
+ 
+ config MVEBU_CLK_GATING
+        bool
++
++config MVEBU_CLK_COREDIV
++	bool
+diff --git a/drivers/clk/mvebu/Makefile b/drivers/clk/mvebu/Makefile
+index 58df3dc..2eed72b 100644
+--- a/drivers/clk/mvebu/Makefile
++++ b/drivers/clk/mvebu/Makefile
+@@ -1,3 +1,4 @@
+ obj-$(CONFIG_MVEBU_CLK_CORE) 	+= clk.o clk-core.o
+ obj-$(CONFIG_MVEBU_CLK_CPU) 	+= clk-cpu.o
+ obj-$(CONFIG_MVEBU_CLK_GATING) 	+= clk-gating-ctrl.o
++obj-$(CONFIG_MVEBU_CLK_COREDIV)	+= clk-corediv.o
+diff --git a/drivers/clk/mvebu/clk-corediv.c b/drivers/clk/mvebu/clk-corediv.c
+new file mode 100644
+index 0000000..3d4c11f
+--- /dev/null
++++ b/drivers/clk/mvebu/clk-corediv.c
+@@ -0,0 +1,223 @@
++/*
++ * MVEBU Core divider clock
++ *
++ * Copyright (C) 2013 Marvell
++ *
++ * Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
++ *
++ * This file is licensed under the terms of the GNU General Public
++ * License version 2.  This program is licensed "as is" without any
++ * warranty of any kind, whether express or implied.
++ */
++
++#include <linux/kernel.h>
++#include <linux/clk-provider.h>
++#include <linux/of_address.h>
++#include <linux/slab.h>
++#include <linux/delay.h>
++#include <asm/io.h>
++
++#define CORE_CLK_DIV_RATIO_MASK		0xff
++#define CORE_CLK_DIV_RATIO_RELOAD	BIT(8)
++#define CORE_CLK_DIV_ENABLE_OFFSET	24
++#define CORE_CLK_DIV_RATIO_OFFSET	0x8
++
++struct clk_corediv_desc {
++	unsigned int mask;
++	unsigned int offset;
++	unsigned int fieldbit;
++};
++
++struct clk_corediv {
++	struct clk_hw hw;
++	void __iomem *reg;
++	struct clk_corediv_desc desc;
++	spinlock_t lock;
++};
++
++static struct clk_onecell_data clk_data;
++
++static const struct clk_corediv_desc mvebu_corediv_desc[] __initconst = {
++	{ .mask = 0x3f, .offset = 8, .fieldbit = 1 }, /* NAND clock */
++};
++
++#define to_corediv_clk(p) container_of(p, struct clk_corediv, hw)
++
++static int clk_corediv_is_enabled(struct clk_hw *hwclk)
++{
++	struct clk_corediv *corediv = to_corediv_clk(hwclk);
++	struct clk_corediv_desc *desc = &corediv->desc;
++	u32 enable_mask = BIT(desc->fieldbit) << CORE_CLK_DIV_ENABLE_OFFSET;
++
++	return !!(readl(corediv->reg) & enable_mask);
++}
++
++static int clk_corediv_enable(struct clk_hw *hwclk)
++{
++	struct clk_corediv *corediv = to_corediv_clk(hwclk);
++	struct clk_corediv_desc *desc = &corediv->desc;
++	unsigned long flags = 0;
++	u32 reg;
++
++	spin_lock_irqsave(&corediv->lock, flags);
++
++	reg = readl(corediv->reg);
++	reg |= (BIT(desc->fieldbit) << CORE_CLK_DIV_ENABLE_OFFSET);
++	writel(reg, corediv->reg);
++
++	spin_unlock_irqrestore(&corediv->lock, flags);
++
++	return 0;
++}
++
++static void clk_corediv_disable(struct clk_hw *hwclk)
++{
++	struct clk_corediv *corediv = to_corediv_clk(hwclk);
++	struct clk_corediv_desc *desc = &corediv->desc;
++	unsigned long flags = 0;
++	u32 reg;
++
++	spin_lock_irqsave(&corediv->lock, flags);
++
++	reg = readl(corediv->reg);
++	reg &= ~(BIT(desc->fieldbit) << CORE_CLK_DIV_ENABLE_OFFSET);
++	writel(reg, corediv->reg);
++
++	spin_unlock_irqrestore(&corediv->lock, flags);
++}
++
++static unsigned long clk_corediv_recalc_rate(struct clk_hw *hwclk,
++					 unsigned long parent_rate)
++{
++	struct clk_corediv *corediv = to_corediv_clk(hwclk);
++	struct clk_corediv_desc *desc = &corediv->desc;
++	u32 reg, div;
++
++	reg = readl(corediv->reg + CORE_CLK_DIV_RATIO_OFFSET);
++	div = (reg >> desc->offset) & desc->mask;
++	return parent_rate / div;
++}
++
++static long clk_corediv_round_rate(struct clk_hw *hwclk, unsigned long rate,
++			       unsigned long *parent_rate)
++{
++	/* Valid ratio are 1:4, 1:5, 1:6 and 1:8 */
++	u32 div;
++
++	div = *parent_rate / rate;
++	if (div < 4)
++		div = 4;
++	else if (div > 6)
++		div = 8;
++
++	return *parent_rate / div;
++}
++
++static int clk_corediv_set_rate(struct clk_hw *hwclk, unsigned long rate,
++			    unsigned long parent_rate)
++{
++	struct clk_corediv *corediv = to_corediv_clk(hwclk);
++	struct clk_corediv_desc *desc = &corediv->desc;
++	unsigned long flags = 0;
++	u32 reg, div;
++
++	div = parent_rate / rate;
++
++	spin_lock_irqsave(&corediv->lock, flags);
++
++	/* Write new divider to the divider ratio register */
++	reg = readl(corediv->reg + CORE_CLK_DIV_RATIO_OFFSET);
++	reg &= ~(desc->mask << desc->offset);
++	reg |= (div & desc->mask) << desc->offset;
++	writel(reg, corediv->reg + CORE_CLK_DIV_RATIO_OFFSET);
++
++	/* Set reload-force for this clock */
++	reg = readl(corediv->reg) | BIT(desc->fieldbit);
++	writel(reg, corediv->reg);
++
++	/* Now trigger the clock update */
++	reg = readl(corediv->reg) | CORE_CLK_DIV_RATIO_RELOAD;
++	writel(reg, corediv->reg);
++
++	/*
++	 * Wait for clocks to settle down, and then clear all the
++	 * ratios request and the reload request.
++	 */
++	udelay(1000);
++	reg &= ~(CORE_CLK_DIV_RATIO_MASK | CORE_CLK_DIV_RATIO_RELOAD);
++	writel(reg, corediv->reg);
++	udelay(1000);
++
++	spin_unlock_irqrestore(&corediv->lock, flags);
++
++	return 0;
++}
++
++static const struct clk_ops corediv_ops = {
++	.enable = clk_corediv_enable,
++	.disable = clk_corediv_disable,
++	.is_enabled = clk_corediv_is_enabled,
++	.recalc_rate = clk_corediv_recalc_rate,
++	.round_rate = clk_corediv_round_rate,
++	.set_rate = clk_corediv_set_rate,
++};
++
++static void __init mvebu_corediv_clk_init(struct device_node *node)
++{
++	struct clk_init_data init;
++	struct clk_corediv *corediv;
++	struct clk **clks;
++	void __iomem *base;
++	const char *parent_name;
++	const char *clk_name;
++	int i;
++
++	base = of_iomap(node, 0);
++	if (WARN_ON(!base))
++		return;
++
++	parent_name = of_clk_get_parent_name(node, 0);
++
++	clk_data.clk_num = ARRAY_SIZE(mvebu_corediv_desc);
++
++	/* clks holds the clock array */
++	clks = kcalloc(clk_data.clk_num, sizeof(struct clk *),
++				GFP_KERNEL);
++	if (WARN_ON(!clks))
++		goto err_unmap;
++	/* corediv holds the clock specific array */
++	corediv = kcalloc(clk_data.clk_num, sizeof(struct clk_corediv),
++				GFP_KERNEL);
++	if (WARN_ON(!corediv))
++		goto err_free_clks;
++
++	spin_lock_init(&corediv->lock);
++
++	for (i = 0; i < clk_data.clk_num; i++) {
++		of_property_read_string_index(node, "clock-output-names",
++					      i, &clk_name);
++		init.num_parents = 1;
++		init.parent_names = &parent_name;
++		init.name = clk_name;
++		init.ops = &corediv_ops;
++		init.flags = 0;
++
++		corediv[i].desc = mvebu_corediv_desc[i];
++		corediv[i].reg = base;
++		corediv[i].hw.init = &init;
++
++		clks[i] = clk_register(NULL, &corediv[i].hw);
++		WARN_ON(IS_ERR(clks[i]));
++	}
++
++	clk_data.clks = clks;
++	of_clk_add_provider(node, of_clk_src_onecell_get, &clk_data);
++	return;
++
++err_free_clks:
++	kfree(clks);
++err_unmap:
++	iounmap(base);
++}
++CLK_OF_DECLARE(mvebu_corediv_clk, "marvell,armada-370-corediv-clock",
++	       mvebu_corediv_clk_init);
+diff --git a/drivers/clocksource/Kconfig b/drivers/clocksource/Kconfig
+index f151c6c..525a2fa 100644
+--- a/drivers/clocksource/Kconfig
++++ b/drivers/clocksource/Kconfig
+@@ -24,6 +24,7 @@ config DW_APB_TIMER_OF
+ 
+ config ARMADA_370_XP_TIMER
+ 	bool
++	select CLKSRC_OF
+ 
+ config SUN4I_TIMER
+ 	bool
+diff --git a/drivers/clocksource/time-armada-370-xp.c b/drivers/clocksource/time-armada-370-xp.c
+index 47a6730..2f1d96a 100644
+--- a/drivers/clocksource/time-armada-370-xp.c
++++ b/drivers/clocksource/time-armada-370-xp.c
+@@ -210,13 +210,11 @@ static struct local_timer_ops armada_370_xp_local_timer_ops __cpuinitdata = {
+ 	.stop	=  armada_370_xp_timer_stop,
+ };
+ 
+-void __init armada_370_xp_timer_init(void)
++static void __init armada_370_xp_timer_init(struct device_node *np)
+ {
+ 	u32 u;
+-	struct device_node *np;
+ 	int res;
+ 
+-	np = of_find_compatible_node(NULL, NULL, "marvell,armada-370-xp-timer");
+ 	timer_base = of_iomap(np, 0);
+ 	WARN_ON(!timer_base);
+ 	local_base = of_iomap(np, 1);
+@@ -299,3 +297,5 @@ void __init armada_370_xp_timer_init(void)
+ #endif
+ 	}
+ }
++CLOCKSOURCE_OF_DECLARE(armada_370_xp, "marvell,armada-370-xp-timer",
++		       armada_370_xp_timer_init);
+diff --git a/drivers/irqchip/irq-armada-370-xp.c b/drivers/irqchip/irq-armada-370-xp.c
+index bb328a3..3fac063 100644
+--- a/drivers/irqchip/irq-armada-370-xp.c
++++ b/drivers/irqchip/irq-armada-370-xp.c
+@@ -21,7 +21,10 @@
+ #include <linux/io.h>
+ #include <linux/of_address.h>
+ #include <linux/of_irq.h>
++#include <linux/of_pci.h>
+ #include <linux/irqdomain.h>
++#include <linux/slab.h>
++#include <linux/msi.h>
+ #include <asm/mach/arch.h>
+ #include <asm/exception.h>
+ #include <asm/smp_plat.h>
+@@ -51,12 +54,22 @@
+ #define IPI_DOORBELL_START                      (0)
+ #define IPI_DOORBELL_END                        (8)
+ #define IPI_DOORBELL_MASK                       0xFF
++#define PCI_MSI_DOORBELL_START                  (16)
++#define PCI_MSI_DOORBELL_NR                     (16)
++#define PCI_MSI_DOORBELL_END                    (32)
++#define PCI_MSI_DOORBELL_MASK                   0xFFFF0000
+ 
+ static DEFINE_RAW_SPINLOCK(irq_controller_lock);
+ 
+ static void __iomem *per_cpu_int_base;
+ static void __iomem *main_int_base;
+ static struct irq_domain *armada_370_xp_mpic_domain;
++#ifdef CONFIG_PCI_MSI
++static struct irq_domain *armada_370_xp_msi_domain;
++static DECLARE_BITMAP(msi_used, PCI_MSI_DOORBELL_NR);
++static DEFINE_MUTEX(msi_used_lock);
++static phys_addr_t msi_doorbell_addr;
++#endif
+ 
+ /*
+  * In SMP mode:
+@@ -87,6 +100,144 @@ static void armada_370_xp_irq_unmask(struct irq_data *d)
+ 				ARMADA_370_XP_INT_CLEAR_MASK_OFFS);
+ }
+ 
++#ifdef CONFIG_PCI_MSI
++
++static int armada_370_xp_alloc_msi(void)
++{
++	int hwirq;
++
++	mutex_lock(&msi_used_lock);
++	hwirq = find_first_zero_bit(&msi_used, PCI_MSI_DOORBELL_NR);
++	if (hwirq >= PCI_MSI_DOORBELL_NR)
++		hwirq = -ENOSPC;
++	else
++		set_bit(hwirq, msi_used);
++	mutex_unlock(&msi_used_lock);
++
++	return hwirq;
++}
++
++static void armada_370_xp_free_msi(int hwirq)
++{
++	mutex_lock(&msi_used_lock);
++	if (!test_bit(hwirq, msi_used))
++		pr_err("trying to free unused MSI#%d\n", hwirq);
++	else
++		clear_bit(hwirq, msi_used);
++	mutex_unlock(&msi_used_lock);
++}
++
++static int armada_370_xp_setup_msi_irq(struct msi_chip *chip,
++				       struct pci_dev *pdev,
++				       struct msi_desc *desc)
++{
++	struct msi_msg msg;
++	irq_hw_number_t hwirq;
++	int virq;
++
++	hwirq = armada_370_xp_alloc_msi();
++	if (hwirq < 0)
++		return hwirq;
++
++	virq = irq_create_mapping(armada_370_xp_msi_domain, hwirq);
++	if (!virq) {
++		armada_370_xp_free_msi(hwirq);
++		return -EINVAL;
++	}
++
++	irq_set_msi_desc(virq, desc);
++
++	msg.address_lo = msi_doorbell_addr;
++	msg.address_hi = 0;
++	msg.data = 0xf00 | (hwirq + 16);
++
++	write_msi_msg(virq, &msg);
++	return 0;
++}
++
++static void armada_370_xp_teardown_msi_irq(struct msi_chip *chip,
++					   unsigned int irq)
++{
++	struct irq_data *d = irq_get_irq_data(irq);
++	irq_dispose_mapping(irq);
++	armada_370_xp_free_msi(d->hwirq);
++}
++
++static struct irq_chip armada_370_xp_msi_irq_chip = {
++	.name = "armada_370_xp_msi_irq",
++	.irq_enable = unmask_msi_irq,
++	.irq_disable = mask_msi_irq,
++	.irq_mask = mask_msi_irq,
++	.irq_unmask = unmask_msi_irq,
++};
++
++static int armada_370_xp_msi_map(struct irq_domain *domain, unsigned int virq,
++				 irq_hw_number_t hw)
++{
++	irq_set_chip_and_handler(virq, &armada_370_xp_msi_irq_chip,
++				 handle_simple_irq);
++	set_irq_flags(virq, IRQF_VALID);
++
++	return 0;
++}
++
++static const struct irq_domain_ops armada_370_xp_msi_irq_ops = {
++	.map = armada_370_xp_msi_map,
++};
++
++static int armada_370_xp_msi_init(struct device_node *node,
++				  phys_addr_t main_int_phys_base)
++{
++	struct msi_chip *msi_chip;
++	u32 reg;
++	int ret;
++
++	msi_doorbell_addr = main_int_phys_base +
++		ARMADA_370_XP_SW_TRIG_INT_OFFS;
++
++	msi_chip = kzalloc(sizeof(*msi_chip), GFP_KERNEL);
++	if (!msi_chip)
++		return -ENOMEM;
++
++	msi_chip->setup_irq = armada_370_xp_setup_msi_irq;
++	msi_chip->teardown_irq = armada_370_xp_teardown_msi_irq;
++	msi_chip->of_node = node;
++
++	armada_370_xp_msi_domain =
++		irq_domain_add_linear(NULL, PCI_MSI_DOORBELL_NR,
++				      &armada_370_xp_msi_irq_ops,
++				      NULL);
++	if (!armada_370_xp_msi_domain) {
++		kfree(msi_chip);
++		return -ENOMEM;
++	}
++
++	ret = of_pci_msi_chip_add(msi_chip);
++	if (ret < 0) {
++		irq_domain_remove(armada_370_xp_msi_domain);
++		kfree(msi_chip);
++		return ret;
++	}
++
++	reg = readl(per_cpu_int_base + ARMADA_370_XP_IN_DRBEL_MSK_OFFS)
++		| PCI_MSI_DOORBELL_MASK;
++
++	writel(reg, per_cpu_int_base +
++	       ARMADA_370_XP_IN_DRBEL_MSK_OFFS);
++
++	/* Unmask IPI interrupt */
++	writel(1, per_cpu_int_base + ARMADA_370_XP_INT_CLEAR_MASK_OFFS);
++
++	return 0;
++}
++#else
++static inline int armada_370_xp_msi_init(struct device_node *node,
++					 phys_addr_t main_int_phys_base)
++{
++	return 0;
++}
++#endif
++
+ #ifdef CONFIG_SMP
+ static int armada_xp_set_affinity(struct irq_data *d,
+ 				  const struct cpumask *mask_val, bool force)
+@@ -214,12 +365,39 @@ armada_370_xp_handle_irq(struct pt_regs *regs)
+ 		if (irqnr > 1022)
+ 			break;
+ 
+-		if (irqnr > 0) {
++		if (irqnr > 1) {
+ 			irqnr =	irq_find_mapping(armada_370_xp_mpic_domain,
+ 					irqnr);
+ 			handle_IRQ(irqnr, regs);
+ 			continue;
+ 		}
++
++#ifdef CONFIG_PCI_MSI
++		/* MSI handling */
++		if (irqnr == 1) {
++			u32 msimask, msinr;
++
++			msimask = readl_relaxed(per_cpu_int_base +
++						ARMADA_370_XP_IN_DRBEL_CAUSE_OFFS)
++				& PCI_MSI_DOORBELL_MASK;
++
++			writel(~msimask, per_cpu_int_base +
++			       ARMADA_370_XP_IN_DRBEL_CAUSE_OFFS);
++
++			for (msinr = PCI_MSI_DOORBELL_START;
++			     msinr < PCI_MSI_DOORBELL_END; msinr++) {
++				int irq;
++
++				if (!(msimask & BIT(msinr)))
++					continue;
++
++				irq = irq_find_mapping(armada_370_xp_msi_domain,
++						       msinr - 16);
++				handle_IRQ(irq, regs);
++			}
++		}
++#endif
++
+ #ifdef CONFIG_SMP
+ 		/* IPI Handling */
+ 		if (irqnr == 0) {
+@@ -229,7 +407,7 @@ armada_370_xp_handle_irq(struct pt_regs *regs)
+ 						ARMADA_370_XP_IN_DRBEL_CAUSE_OFFS)
+ 				& IPI_DOORBELL_MASK;
+ 
+-			writel(~IPI_DOORBELL_MASK, per_cpu_int_base +
++			writel(~ipimask, per_cpu_int_base +
+ 				ARMADA_370_XP_IN_DRBEL_CAUSE_OFFS);
+ 
+ 			/* Handle all pending doorbells */
+@@ -248,12 +426,25 @@ armada_370_xp_handle_irq(struct pt_regs *regs)
+ static int __init armada_370_xp_mpic_of_init(struct device_node *node,
+ 					     struct device_node *parent)
+ {
++	struct resource main_int_res, per_cpu_int_res;
+ 	u32 control;
+ 
+-	main_int_base = of_iomap(node, 0);
+-	per_cpu_int_base = of_iomap(node, 1);
++	BUG_ON(of_address_to_resource(node, 0, &main_int_res));
++	BUG_ON(of_address_to_resource(node, 1, &per_cpu_int_res));
++
++	BUG_ON(!request_mem_region(main_int_res.start,
++				   resource_size(&main_int_res),
++				   node->full_name));
++	BUG_ON(!request_mem_region(per_cpu_int_res.start,
++				   resource_size(&per_cpu_int_res),
++				   node->full_name));
+ 
++	main_int_base = ioremap(main_int_res.start,
++				resource_size(&main_int_res));
+ 	BUG_ON(!main_int_base);
++
++	per_cpu_int_base = ioremap(per_cpu_int_res.start,
++				   resource_size(&per_cpu_int_res));
+ 	BUG_ON(!per_cpu_int_base);
+ 
+ 	control = readl(main_int_base + ARMADA_370_XP_INT_CONTROL);
+@@ -262,8 +453,7 @@ static int __init armada_370_xp_mpic_of_init(struct device_node *node,
+ 		irq_domain_add_linear(node, (control >> 2) & 0x3ff,
+ 				&armada_370_xp_mpic_irq_ops, NULL);
+ 
+-	if (!armada_370_xp_mpic_domain)
+-		panic("Unable to add Armada_370_Xp MPIC irq domain (DT)\n");
++	BUG_ON(!armada_370_xp_mpic_domain);
+ 
+ 	irq_set_default_host(armada_370_xp_mpic_domain);
+ 
+@@ -280,6 +470,8 @@ static int __init armada_370_xp_mpic_of_init(struct device_node *node,
+ 
+ #endif
+ 
++	armada_370_xp_msi_init(node, main_int_res.start);
++
+ 	set_handle_irq(armada_370_xp_handle_irq);
+ 
+ 	return 0;
+diff --git a/drivers/mtd/nand/nand_base.c b/drivers/mtd/nand/nand_base.c
+index 633db88..7165b2b 100644
+--- a/drivers/mtd/nand/nand_base.c
++++ b/drivers/mtd/nand/nand_base.c
+@@ -2848,6 +2848,76 @@ static u16 onfi_crc16(u16 crc, u8 const *p, size_t len)
+ 	return crc;
+ }
+ 
++/* Parse the Extended Parameter Page. */
++static int nand_flash_detect_ext_param_page(struct mtd_info *mtd,
++		struct nand_chip *chip, struct nand_onfi_params *p)
++{
++	struct onfi_ext_param_page *ep;
++	struct onfi_ext_section *s;
++	struct onfi_ext_ecc_info *ecc;
++	uint8_t *cursor;
++	int ret = -EINVAL;
++	int len;
++	int i;
++
++	len = le16_to_cpu(p->ext_param_page_length) * 16;
++	ep = kmalloc(len, GFP_KERNEL);
++	if (!ep)
++		return -ENOMEM;
++
++	/* Send our own NAND_CMD_PARAM. */
++	chip->cmdfunc(mtd, NAND_CMD_PARAM, 0, -1);
++
++	/* Use the Change Read Column command to skip the ONFI param pages. */
++	chip->cmdfunc(mtd, NAND_CMD_RNDOUT,
++			sizeof(*p) * p->num_of_param_pages , -1);
++
++	/* Read out the Extended Parameter Page. */
++	chip->read_buf(mtd, (uint8_t *)ep, len);
++	if ((onfi_crc16(ONFI_CRC_BASE, ((uint8_t *)ep) + 2, len - 2)
++		!= le16_to_cpu(ep->crc))) {
++		pr_debug("fail in the CRC.\n");
++		goto ext_out;
++	}
++
++	/*
++	 * Check the signature.
++	 * Do not strictly follow the ONFI spec, maybe changed in future.
++	 */
++	if (strncmp(ep->sig, "EPPS", 4)) {
++		pr_debug("The signature is invalid.\n");
++		goto ext_out;
++	}
++
++	/* find the ECC section. */
++	cursor = (uint8_t *)(ep + 1);
++	for (i = 0; i < ONFI_EXT_SECTION_MAX; i++) {
++		s = ep->sections + i;
++		if (s->type == ONFI_SECTION_TYPE_2)
++			break;
++		cursor += s->length * 16;
++	}
++	if (i == ONFI_EXT_SECTION_MAX) {
++		pr_debug("We can not find the ECC section.\n");
++		goto ext_out;
++	}
++
++	/* get the info we want. */
++	ecc = (struct onfi_ext_ecc_info *)cursor;
++
++	if (ecc->codeword_size) {
++		chip->ecc_strength_ds = ecc->ecc_bits;
++		chip->ecc_step_ds = 1 << ecc->codeword_size;
++	}
++
++	pr_info("ONFI extended param page detected.\n");
++	ret = 0;
++
++ext_out:
++	kfree(ep);
++	return ret;
++}
++
+ /*
+  * Check if the NAND chip is ONFI compliant, returns 1 if it is, 0 otherwise.
+  */
+@@ -2924,6 +2994,26 @@ static int nand_flash_detect_onfi(struct mtd_info *mtd, struct nand_chip *chip,
+ 	if (le16_to_cpu(p->features) & 1)
+ 		*busw = NAND_BUSWIDTH_16;
+ 
++	if (p->ecc_bits != 0xff) {
++		chip->ecc_strength_ds = p->ecc_bits;
++		chip->ecc_step_ds = 512;
++	} else if (chip->onfi_version >= 21 &&
++		(onfi_feature(chip) & ONFI_FEATURE_EXT_PARAM_PAGE)) {
++
++		/*
++		 * The nand_flash_detect_ext_param_page() uses the
++		 * Change Read Column command which maybe not supported
++		 * by the chip->cmdfunc. So try to update the chip->cmdfunc
++		 * now. We do not replace user supplied command function.
++		 */
++		if (mtd->writesize > 512 && chip->cmdfunc == nand_command)
++			chip->cmdfunc = nand_command_lp;
++
++		/* The Extended Parameter Page is supported since ONFI 2.1. */
++		if (nand_flash_detect_ext_param_page(mtd, chip, p))
++			pr_info("Failed to detect the extended param page.\n");
++	}
++
+ 	pr_info("ONFI flash detected\n");
+ 	return 1;
+ }
+diff --git a/drivers/mtd/nand/pxa3xx_nand.c b/drivers/mtd/nand/pxa3xx_nand.c
+index dec80ca..c28d4e2 100644
+--- a/drivers/mtd/nand/pxa3xx_nand.c
++++ b/drivers/mtd/nand/pxa3xx_nand.c
+@@ -25,7 +25,14 @@
+ #include <linux/of.h>
+ #include <linux/of_device.h>
+ 
++#if defined(CONFIG_ARCH_PXA) || defined(CONFIG_ARCH_MMP)
++#define ARCH_HAS_DMA
++#endif
++
++#ifdef ARCH_HAS_DMA
+ #include <mach/dma.h>
++#endif
++
+ #include <linux/platform_data/mtd-nand-pxa3xx.h>
+ 
+ #define	CHIP_DELAY_TIMEOUT	(2 * HZ/10)
+@@ -80,6 +87,7 @@
+ #define NDSR_RDDREQ		(0x1 << 1)
+ #define NDSR_WRCMDREQ		(0x1)
+ 
++#define NDCB0_LEN_OVRD		(0x1 << 28)
+ #define NDCB0_ST_ROW_EN         (0x1 << 26)
+ #define NDCB0_AUTO_RS		(0x1 << 25)
+ #define NDCB0_CSEL		(0x1 << 24)
+@@ -123,9 +131,13 @@ enum {
+ 	STATE_READY,
+ };
+ 
++enum pxa3xx_nand_variant {
++	PXA3XX_NAND_VARIANT_PXA,
++	PXA3XX_NAND_VARIANT_ARMADA370,
++};
++
+ struct pxa3xx_nand_host {
+ 	struct nand_chip	chip;
+-	struct pxa3xx_nand_cmdset *cmdset;
+ 	struct mtd_info         *mtd;
+ 	void			*info_data;
+ 
+@@ -139,10 +151,6 @@ struct pxa3xx_nand_host {
+ 	unsigned int		row_addr_cycles;
+ 	size_t			read_id_bytes;
+ 
+-	/* cached register value */
+-	uint32_t		reg_ndcr;
+-	uint32_t		ndtr0cs0;
+-	uint32_t		ndtr1cs0;
+ };
+ 
+ struct pxa3xx_nand_info {
+@@ -171,9 +179,16 @@ struct pxa3xx_nand_info {
+ 	struct pxa3xx_nand_host *host[NUM_CHIP_SELECT];
+ 	unsigned int		state;
+ 
++	/*
++	 * This driver supports NFCv1 (as found in PXA SoC)
++	 * and NFCv2 (as found in Armada 370/XP SoC).
++	 */
++	enum pxa3xx_nand_variant variant;
++
+ 	int			cs;
+ 	int			use_ecc;	/* use HW ECC ? */
+ 	int			use_dma;	/* use DMA ? */
++	int			use_spare;	/* use spare ? */
+ 	int			is_ready;
+ 
+ 	unsigned int		page_size;	/* page size of attached chip */
+@@ -181,33 +196,22 @@ struct pxa3xx_nand_info {
+ 	unsigned int		oob_size;
+ 	int 			retcode;
+ 
++	/* cached register value */
++	uint32_t		reg_ndcr;
++	uint32_t		ndtr0cs0;
++	uint32_t		ndtr1cs0;
++
+ 	/* generated NDCBx register values */
+ 	uint32_t		ndcb0;
+ 	uint32_t		ndcb1;
+ 	uint32_t		ndcb2;
++	uint32_t		ndcb3;
+ };
+ 
+ static bool use_dma = 1;
+ module_param(use_dma, bool, 0444);
+ MODULE_PARM_DESC(use_dma, "enable DMA for data transferring to/from NAND HW");
+ 
+-/*
+- * Default NAND flash controller configuration setup by the
+- * bootloader. This configuration is used only when pdata->keep_config is set
+- */
+-static struct pxa3xx_nand_cmdset default_cmdset = {
+-	.read1		= 0x3000,
+-	.read2		= 0x0050,
+-	.program	= 0x1080,
+-	.read_status	= 0x0070,
+-	.read_id	= 0x0090,
+-	.erase		= 0xD060,
+-	.reset		= 0x00FF,
+-	.lock		= 0x002A,
+-	.unlock		= 0x2423,
+-	.lock_status	= 0x007A,
+-};
+-
+ static struct pxa3xx_nand_timing timing[] = {
+ 	{ 40, 80, 60, 100, 80, 100, 90000, 400, 40, },
+ 	{ 10,  0, 20,  40, 30,  40, 11123, 110, 10, },
+@@ -230,8 +234,6 @@ static struct pxa3xx_nand_flash builtin_flash_types[] = {
+ /* Define a default flash type setting serve as flash detecting only */
+ #define DEFAULT_FLASH_TYPE (&builtin_flash_types[0])
+ 
+-const char *mtd_names[] = {"pxa3xx_nand-0", "pxa3xx_nand-1", NULL};
+-
+ #define NDTR0_tCH(c)	(min((c), 7) << 19)
+ #define NDTR0_tCS(c)	(min((c), 7) << 16)
+ #define NDTR0_tWH(c)	(min((c), 7) << 11)
+@@ -264,8 +266,8 @@ static void pxa3xx_nand_set_timing(struct pxa3xx_nand_host *host,
+ 		NDTR1_tWHR(ns2cycle(t->tWHR, nand_clk)) |
+ 		NDTR1_tAR(ns2cycle(t->tAR, nand_clk));
+ 
+-	host->ndtr0cs0 = ndtr0;
+-	host->ndtr1cs0 = ndtr1;
++	info->ndtr0cs0 = ndtr0;
++	info->ndtr1cs0 = ndtr1;
+ 	nand_writel(info, NDTR0CS0, ndtr0);
+ 	nand_writel(info, NDTR1CS0, ndtr1);
+ }
+@@ -273,7 +275,7 @@ static void pxa3xx_nand_set_timing(struct pxa3xx_nand_host *host,
+ static void pxa3xx_set_datasize(struct pxa3xx_nand_info *info)
+ {
+ 	struct pxa3xx_nand_host *host = info->host[info->cs];
+-	int oob_enable = host->reg_ndcr & NDCR_SPARE_EN;
++	int oob_enable = info->reg_ndcr & NDCR_SPARE_EN;
+ 
+ 	info->data_size = host->page_size;
+ 	if (!oob_enable) {
+@@ -299,12 +301,25 @@ static void pxa3xx_set_datasize(struct pxa3xx_nand_info *info)
+  */
+ static void pxa3xx_nand_start(struct pxa3xx_nand_info *info)
+ {
+-	struct pxa3xx_nand_host *host = info->host[info->cs];
+ 	uint32_t ndcr;
+ 
+-	ndcr = host->reg_ndcr;
+-	ndcr |= info->use_ecc ? NDCR_ECC_EN : 0;
+-	ndcr |= info->use_dma ? NDCR_DMA_EN : 0;
++	ndcr = info->reg_ndcr;
++
++	if (info->use_ecc)
++		ndcr |= NDCR_ECC_EN;
++	else
++		ndcr &= ~NDCR_ECC_EN;
++
++	if (info->use_dma)
++		ndcr |= NDCR_DMA_EN;
++	else
++		ndcr &= ~NDCR_DMA_EN;
++
++	if (info->use_spare)
++		ndcr |= NDCR_SPARE_EN;
++	else
++		ndcr &= ~NDCR_SPARE_EN;
++
+ 	ndcr |= NDCR_ND_RUN;
+ 
+ 	/* clear status bits and run */
+@@ -333,7 +348,8 @@ static void pxa3xx_nand_stop(struct pxa3xx_nand_info *info)
+ 	nand_writel(info, NDSR, NDSR_MASK);
+ }
+ 
+-static void enable_int(struct pxa3xx_nand_info *info, uint32_t int_mask)
++static void __maybe_unused
++enable_int(struct pxa3xx_nand_info *info, uint32_t int_mask)
+ {
+ 	uint32_t ndcr;
+ 
+@@ -373,6 +389,7 @@ static void handle_data_pio(struct pxa3xx_nand_info *info)
+ 	}
+ }
+ 
++#ifdef ARCH_HAS_DMA
+ static void start_data_dma(struct pxa3xx_nand_info *info)
+ {
+ 	struct pxa_dma_desc *desc = info->data_desc;
+@@ -419,6 +436,10 @@ static void pxa3xx_nand_data_dma_irq(int channel, void *data)
+ 	enable_int(info, NDCR_INT_MASK);
+ 	nand_writel(info, NDSR, NDSR_WRDREQ | NDSR_RDDREQ);
+ }
++#else
++static void start_data_dma(struct pxa3xx_nand_info *info)
++{}
++#endif
+ 
+ static irqreturn_t pxa3xx_nand_irq(int irq, void *devid)
+ {
+@@ -467,9 +488,22 @@ static irqreturn_t pxa3xx_nand_irq(int irq, void *devid)
+ 		nand_writel(info, NDSR, NDSR_WRCMDREQ);
+ 		status &= ~NDSR_WRCMDREQ;
+ 		info->state = STATE_CMD_HANDLE;
++
++		/*
++		 * Command buffer registers NDCB{0-2} (and optionally NDCB3)
++		 * must be loaded by writing directly either 12 or 16
++		 * bytes directly to NDCB0, four bytes at a time.
++		 *
++		 * Direct write access to NDCB1, NDCB2 and NDCB3 is ignored
++		 * but each NDCBx register can be read.
++		 */
+ 		nand_writel(info, NDCB0, info->ndcb0);
+ 		nand_writel(info, NDCB0, info->ndcb1);
+ 		nand_writel(info, NDCB0, info->ndcb2);
++
++		/* NDCB3 register is available in NFCv2 (Armada 370/XP SoC) */
++		if (info->variant == PXA3XX_NAND_VARIANT_ARMADA370)
++			nand_writel(info, NDCB0, info->ndcb3);
+ 	}
+ 
+ 	/* clear NDSR to let the controller exit the IRQ */
+@@ -491,7 +525,6 @@ static inline int is_buf_blank(uint8_t *buf, size_t len)
+ static int prepare_command_pool(struct pxa3xx_nand_info *info, int command,
+ 		uint16_t column, int page_addr)
+ {
+-	uint16_t cmd;
+ 	int addr_cycle, exec_cmd;
+ 	struct pxa3xx_nand_host *host;
+ 	struct mtd_info *mtd;
+@@ -506,6 +539,8 @@ static int prepare_command_pool(struct pxa3xx_nand_info *info, int command,
+ 	info->buf_count		= 0;
+ 	info->oob_size		= 0;
+ 	info->use_ecc		= 0;
++	info->use_spare		= 1;
++	info->use_dma		= (use_dma) ? 1 : 0;
+ 	info->is_ready		= 0;
+ 	info->retcode		= ERR_NONE;
+ 	if (info->cs != 0)
+@@ -520,12 +555,16 @@ static int prepare_command_pool(struct pxa3xx_nand_info *info, int command,
+ 	case NAND_CMD_READOOB:
+ 		pxa3xx_set_datasize(info);
+ 		break;
++	case NAND_CMD_PARAM:
++		info->use_spare = 0;
++		break;
+ 	case NAND_CMD_SEQIN:
+ 		exec_cmd = 0;
+ 		break;
+ 	default:
+ 		info->ndcb1 = 0;
+ 		info->ndcb2 = 0;
++		info->ndcb3 = 0;
+ 		break;
+ 	}
+ 
+@@ -535,21 +574,17 @@ static int prepare_command_pool(struct pxa3xx_nand_info *info, int command,
+ 	switch (command) {
+ 	case NAND_CMD_READOOB:
+ 	case NAND_CMD_READ0:
+-		cmd = host->cmdset->read1;
++		info->buf_start = column;
++		info->ndcb0 |= NDCB0_CMD_TYPE(0)
++				| addr_cycle
++				| NAND_CMD_READ0;
++
+ 		if (command == NAND_CMD_READOOB)
+-			info->buf_start = mtd->writesize + column;
+-		else
+-			info->buf_start = column;
++			info->buf_start += mtd->writesize;
+ 
+-		if (unlikely(host->page_size < PAGE_CHUNK_SIZE))
+-			info->ndcb0 |= NDCB0_CMD_TYPE(0)
+-					| addr_cycle
+-					| (cmd & NDCB0_CMD1_MASK);
+-		else
+-			info->ndcb0 |= NDCB0_CMD_TYPE(0)
+-					| NDCB0_DBC
+-					| addr_cycle
+-					| cmd;
++		/* Second command setting for large pages */
++		if (host->page_size >= PAGE_CHUNK_SIZE)
++			info->ndcb0 |= NDCB0_DBC | (NAND_CMD_READSTART << 8);
+ 
+ 	case NAND_CMD_SEQIN:
+ 		/* small page addr setting */
+@@ -580,49 +615,58 @@ static int prepare_command_pool(struct pxa3xx_nand_info *info, int command,
+ 			break;
+ 		}
+ 
+-		cmd = host->cmdset->program;
+ 		info->ndcb0 |= NDCB0_CMD_TYPE(0x1)
+ 				| NDCB0_AUTO_RS
+ 				| NDCB0_ST_ROW_EN
+ 				| NDCB0_DBC
+-				| cmd
++				| (NAND_CMD_PAGEPROG << 8)
++				| NAND_CMD_SEQIN
+ 				| addr_cycle;
+ 		break;
+ 
++	case NAND_CMD_PARAM:
++		info->buf_count = 256;
++		info->ndcb0 |= NDCB0_CMD_TYPE(0)
++				| NDCB0_ADDR_CYC(1)
++				| NDCB0_LEN_OVRD
++				| command;
++		info->ndcb1 = (column & 0xFF);
++		info->ndcb3 = 256;
++		info->data_size = 256;
++		break;
++
+ 	case NAND_CMD_READID:
+-		cmd = host->cmdset->read_id;
+ 		info->buf_count = host->read_id_bytes;
+ 		info->ndcb0 |= NDCB0_CMD_TYPE(3)
+ 				| NDCB0_ADDR_CYC(1)
+-				| cmd;
++				| command;
++		info->ndcb1 = (column & 0xFF);
+ 
+ 		info->data_size = 8;
+ 		break;
+ 	case NAND_CMD_STATUS:
+-		cmd = host->cmdset->read_status;
+ 		info->buf_count = 1;
+ 		info->ndcb0 |= NDCB0_CMD_TYPE(4)
+ 				| NDCB0_ADDR_CYC(1)
+-				| cmd;
++				| command;
+ 
+ 		info->data_size = 8;
+ 		break;
+ 
+ 	case NAND_CMD_ERASE1:
+-		cmd = host->cmdset->erase;
+ 		info->ndcb0 |= NDCB0_CMD_TYPE(2)
+ 				| NDCB0_AUTO_RS
+ 				| NDCB0_ADDR_CYC(3)
+ 				| NDCB0_DBC
+-				| cmd;
++				| (NAND_CMD_ERASE2 << 8)
++				| NAND_CMD_ERASE1;
+ 		info->ndcb1 = page_addr;
+ 		info->ndcb2 = 0;
+ 
+ 		break;
+ 	case NAND_CMD_RESET:
+-		cmd = host->cmdset->reset;
+ 		info->ndcb0 |= NDCB0_CMD_TYPE(5)
+-				| cmd;
++				| command;
+ 
+ 		break;
+ 
+@@ -652,7 +696,7 @@ static void pxa3xx_nand_cmdfunc(struct mtd_info *mtd, unsigned command,
+ 	 * "byte" address into a "word" address appropriate
+ 	 * for indexing a word-oriented device
+ 	 */
+-	if (host->reg_ndcr & NDCR_DWIDTH_M)
++	if (info->reg_ndcr & NDCR_DWIDTH_M)
+ 		column /= 2;
+ 
+ 	/*
+@@ -662,8 +706,8 @@ static void pxa3xx_nand_cmdfunc(struct mtd_info *mtd, unsigned command,
+ 	 */
+ 	if (info->cs != host->cs) {
+ 		info->cs = host->cs;
+-		nand_writel(info, NDTR0CS0, host->ndtr0cs0);
+-		nand_writel(info, NDTR1CS0, host->ndtr1cs0);
++		nand_writel(info, NDTR0CS0, info->ndtr0cs0);
++		nand_writel(info, NDTR1CS0, info->ndtr1cs0);
+ 	}
+ 
+ 	info->state = STATE_PREPARED;
+@@ -803,7 +847,7 @@ static int pxa3xx_nand_config_flash(struct pxa3xx_nand_info *info,
+ 				    const struct pxa3xx_nand_flash *f)
+ {
+ 	struct platform_device *pdev = info->pdev;
+-	struct pxa3xx_nand_platform_data *pdata = pdev->dev.platform_data;
++	struct pxa3xx_nand_platform_data *pdata = dev_get_platdata(&pdev->dev);
+ 	struct pxa3xx_nand_host *host = info->host[info->cs];
+ 	uint32_t ndcr = 0x0; /* enable all interrupts */
+ 
+@@ -818,7 +862,6 @@ static int pxa3xx_nand_config_flash(struct pxa3xx_nand_info *info,
+ 	}
+ 
+ 	/* calculate flash information */
+-	host->cmdset = &default_cmdset;
+ 	host->page_size = f->page_size;
+ 	host->read_id_bytes = (f->page_size == 2048) ? 4 : 2;
+ 
+@@ -840,7 +883,7 @@ static int pxa3xx_nand_config_flash(struct pxa3xx_nand_info *info,
+ 	ndcr |= NDCR_RD_ID_CNT(host->read_id_bytes);
+ 	ndcr |= NDCR_SPARE_EN; /* enable spare by default */
+ 
+-	host->reg_ndcr = ndcr;
++	info->reg_ndcr = ndcr;
+ 
+ 	pxa3xx_nand_set_timing(host, f->timing);
+ 	return 0;
+@@ -863,12 +906,9 @@ static int pxa3xx_nand_detect_config(struct pxa3xx_nand_info *info)
+ 		host->read_id_bytes = 2;
+ 	}
+ 
+-	host->reg_ndcr = ndcr & ~NDCR_INT_MASK;
+-	host->cmdset = &default_cmdset;
+-
+-	host->ndtr0cs0 = nand_readl(info, NDTR0CS0);
+-	host->ndtr1cs0 = nand_readl(info, NDTR1CS0);
+-
++	info->reg_ndcr = ndcr & ~NDCR_INT_MASK;
++	info->ndtr0cs0 = nand_readl(info, NDTR0CS0);
++	info->ndtr1cs0 = nand_readl(info, NDTR1CS0);
+ 	return 0;
+ }
+ 
+@@ -878,6 +918,7 @@ static int pxa3xx_nand_detect_config(struct pxa3xx_nand_info *info)
+  */
+ #define MAX_BUFF_SIZE	PAGE_SIZE
+ 
++#ifdef ARCH_HAS_DMA
+ static int pxa3xx_nand_init_buff(struct pxa3xx_nand_info *info)
+ {
+ 	struct platform_device *pdev = info->pdev;
+@@ -912,6 +953,32 @@ static int pxa3xx_nand_init_buff(struct pxa3xx_nand_info *info)
+ 	return 0;
+ }
+ 
++static void pxa3xx_nand_free_buff(struct pxa3xx_nand_info *info)
++{
++	struct platform_device *pdev = info->pdev;
++	if (use_dma) {
++		pxa_free_dma(info->data_dma_ch);
++		dma_free_coherent(&pdev->dev, MAX_BUFF_SIZE,
++				  info->data_buff, info->data_buff_phys);
++	} else {
++		kfree(info->data_buff);
++	}
++}
++#else
++static int pxa3xx_nand_init_buff(struct pxa3xx_nand_info *info)
++{
++	info->data_buff = kmalloc(MAX_BUFF_SIZE, GFP_KERNEL);
++	if (info->data_buff == NULL)
++		return -ENOMEM;
++	return 0;
++}
++
++static void pxa3xx_nand_free_buff(struct pxa3xx_nand_info *info)
++{
++	kfree(info->data_buff);
++}
++#endif
++
+ static int pxa3xx_nand_sensing(struct pxa3xx_nand_info *info)
+ {
+ 	struct mtd_info *mtd;
+@@ -934,7 +1001,7 @@ static int pxa3xx_nand_scan(struct mtd_info *mtd)
+ 	struct pxa3xx_nand_host *host = mtd->priv;
+ 	struct pxa3xx_nand_info *info = host->info_data;
+ 	struct platform_device *pdev = info->pdev;
+-	struct pxa3xx_nand_platform_data *pdata = pdev->dev.platform_data;
++	struct pxa3xx_nand_platform_data *pdata = dev_get_platdata(&pdev->dev);
+ 	struct nand_flash_dev pxa3xx_flash_ids[2], *def = NULL;
+ 	const struct pxa3xx_nand_flash *f = NULL;
+ 	struct nand_chip *chip = mtd->priv;
+@@ -1003,7 +1070,7 @@ KEEP_CONFIG:
+ 	chip->ecc.size = host->page_size;
+ 	chip->ecc.strength = 1;
+ 
+-	if (host->reg_ndcr & NDCR_DWIDTH_M)
++	if (info->reg_ndcr & NDCR_DWIDTH_M)
+ 		chip->options |= NAND_BUSWIDTH_16;
+ 
+ 	if (nand_scan_ident(mtd, 1, def))
+@@ -1019,8 +1086,6 @@ KEEP_CONFIG:
+ 		host->row_addr_cycles = 3;
+ 	else
+ 		host->row_addr_cycles = 2;
+-
+-	mtd->name = mtd_names[0];
+ 	return nand_scan_tail(mtd);
+ }
+ 
+@@ -1034,13 +1099,11 @@ static int alloc_nand_resource(struct platform_device *pdev)
+ 	struct resource *r;
+ 	int ret, irq, cs;
+ 
+-	pdata = pdev->dev.platform_data;
+-	info = kzalloc(sizeof(*info) + (sizeof(*mtd) +
+-		       sizeof(*host)) * pdata->num_cs, GFP_KERNEL);
+-	if (!info) {
+-		dev_err(&pdev->dev, "failed to allocate memory\n");
++	pdata = dev_get_platdata(&pdev->dev);
++	info = devm_kzalloc(&pdev->dev, sizeof(*info) + (sizeof(*mtd) +
++			    sizeof(*host)) * pdata->num_cs, GFP_KERNEL);
++	if (!info)
+ 		return -ENOMEM;
+-	}
+ 
+ 	info->pdev = pdev;
+ 	for (cs = 0; cs < pdata->num_cs; cs++) {
+@@ -1069,72 +1132,64 @@ static int alloc_nand_resource(struct platform_device *pdev)
+ 
+ 	spin_lock_init(&chip->controller->lock);
+ 	init_waitqueue_head(&chip->controller->wq);
+-	info->clk = clk_get(&pdev->dev, NULL);
++	info->clk = devm_clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(info->clk)) {
+ 		dev_err(&pdev->dev, "failed to get nand clock\n");
+-		ret = PTR_ERR(info->clk);
+-		goto fail_free_mtd;
++		return PTR_ERR(info->clk);
+ 	}
+-	clk_enable(info->clk);
+-
+-	/*
+-	 * This is a dirty hack to make this driver work from devicetree
+-	 * bindings. It can be removed once we have a prober DMA controller
+-	 * framework for DT.
+-	 */
+-	if (pdev->dev.of_node && cpu_is_pxa3xx()) {
+-		info->drcmr_dat = 97;
+-		info->drcmr_cmd = 99;
+-	} else {
+-		r = platform_get_resource(pdev, IORESOURCE_DMA, 0);
+-		if (r == NULL) {
+-			dev_err(&pdev->dev, "no resource defined for data DMA\n");
+-			ret = -ENXIO;
+-			goto fail_put_clk;
+-		}
+-		info->drcmr_dat = r->start;
++	ret = clk_prepare_enable(info->clk);
++	if (ret < 0)
++		return ret;
+ 
+-		r = platform_get_resource(pdev, IORESOURCE_DMA, 1);
+-		if (r == NULL) {
+-			dev_err(&pdev->dev, "no resource defined for command DMA\n");
+-			ret = -ENXIO;
+-			goto fail_put_clk;
++	if (use_dma) {
++		/*
++		 * This is a dirty hack to make this driver work from
++		 * devicetree bindings. It can be removed once we have
++		 * a prober DMA controller framework for DT.
++		 */
++		if (pdev->dev.of_node &&
++		    of_machine_is_compatible("marvell,pxa3xx")) {
++			info->drcmr_dat = 97;
++			info->drcmr_cmd = 99;
++		} else {
++			r = platform_get_resource(pdev, IORESOURCE_DMA, 0);
++			if (r == NULL) {
++				dev_err(&pdev->dev,
++					"no resource defined for data DMA\n");
++				ret = -ENXIO;
++				goto fail_disable_clk;
++			}
++			info->drcmr_dat = r->start;
++
++			r = platform_get_resource(pdev, IORESOURCE_DMA, 1);
++			if (r == NULL) {
++				dev_err(&pdev->dev,
++					"no resource defined for cmd DMA\n");
++				ret = -ENXIO;
++				goto fail_disable_clk;
++			}
++			info->drcmr_cmd = r->start;
+ 		}
+-		info->drcmr_cmd = r->start;
+ 	}
+ 
+ 	irq = platform_get_irq(pdev, 0);
+ 	if (irq < 0) {
+ 		dev_err(&pdev->dev, "no IRQ resource defined\n");
+ 		ret = -ENXIO;
+-		goto fail_put_clk;
++		goto fail_disable_clk;
+ 	}
+ 
+ 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (r == NULL) {
+-		dev_err(&pdev->dev, "no IO memory resource defined\n");
+-		ret = -ENODEV;
+-		goto fail_put_clk;
+-	}
+-
+-	r = request_mem_region(r->start, resource_size(r), pdev->name);
+-	if (r == NULL) {
+-		dev_err(&pdev->dev, "failed to request memory resource\n");
+-		ret = -EBUSY;
+-		goto fail_put_clk;
+-	}
+-
+-	info->mmio_base = ioremap(r->start, resource_size(r));
+-	if (info->mmio_base == NULL) {
+-		dev_err(&pdev->dev, "ioremap() failed\n");
+-		ret = -ENODEV;
+-		goto fail_free_res;
++	info->mmio_base = devm_ioremap_resource(&pdev->dev, r);
++	if (IS_ERR(info->mmio_base)) {
++		ret = PTR_ERR(info->mmio_base);
++		goto fail_disable_clk;
+ 	}
+ 	info->mmio_phys = r->start;
+ 
+ 	ret = pxa3xx_nand_init_buff(info);
+ 	if (ret)
+-		goto fail_free_io;
++		goto fail_disable_clk;
+ 
+ 	/* initialize all interrupts to be disabled */
+ 	disable_int(info, NDSR_MASK);
+@@ -1152,21 +1207,9 @@ static int alloc_nand_resource(struct platform_device *pdev)
+ 
+ fail_free_buf:
+ 	free_irq(irq, info);
+-	if (use_dma) {
+-		pxa_free_dma(info->data_dma_ch);
+-		dma_free_coherent(&pdev->dev, MAX_BUFF_SIZE,
+-			info->data_buff, info->data_buff_phys);
+-	} else
+-		kfree(info->data_buff);
+-fail_free_io:
+-	iounmap(info->mmio_base);
+-fail_free_res:
+-	release_mem_region(r->start, resource_size(r));
+-fail_put_clk:
+-	clk_disable(info->clk);
+-	clk_put(info->clk);
+-fail_free_mtd:
+-	kfree(info);
++	pxa3xx_nand_free_buff(info);
++fail_disable_clk:
++	clk_disable_unprepare(info->clk);
+ 	return ret;
+ }
+ 
+@@ -1174,44 +1217,47 @@ static int pxa3xx_nand_remove(struct platform_device *pdev)
+ {
+ 	struct pxa3xx_nand_info *info = platform_get_drvdata(pdev);
+ 	struct pxa3xx_nand_platform_data *pdata;
+-	struct resource *r;
+ 	int irq, cs;
+ 
+ 	if (!info)
+ 		return 0;
+ 
+-	pdata = pdev->dev.platform_data;
+-	platform_set_drvdata(pdev, NULL);
++	pdata = dev_get_platdata(&pdev->dev);
+ 
+ 	irq = platform_get_irq(pdev, 0);
+ 	if (irq >= 0)
+ 		free_irq(irq, info);
+-	if (use_dma) {
+-		pxa_free_dma(info->data_dma_ch);
+-		dma_free_writecombine(&pdev->dev, MAX_BUFF_SIZE,
+-				info->data_buff, info->data_buff_phys);
+-	} else
+-		kfree(info->data_buff);
++	pxa3xx_nand_free_buff(info);
+ 
+-	iounmap(info->mmio_base);
+-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	release_mem_region(r->start, resource_size(r));
+-
+-	clk_disable(info->clk);
+-	clk_put(info->clk);
++	clk_disable_unprepare(info->clk);
+ 
+ 	for (cs = 0; cs < pdata->num_cs; cs++)
+ 		nand_release(info->host[cs]->mtd);
+-	kfree(info);
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_OF
+ static struct of_device_id pxa3xx_nand_dt_ids[] = {
+-	{ .compatible = "marvell,pxa3xx-nand" },
++	{
++		.compatible = "marvell,pxa3xx-nand",
++		.data       = (void *)PXA3XX_NAND_VARIANT_PXA,
++	},
++	{
++		.compatible = "marvell,armada370-nand",
++		.data       = (void *)PXA3XX_NAND_VARIANT_ARMADA370,
++	},
+ 	{}
+ };
+-MODULE_DEVICE_TABLE(of, i2c_pxa_dt_ids);
++MODULE_DEVICE_TABLE(of, pxa3xx_nand_dt_ids);
++
++static enum pxa3xx_nand_variant
++pxa3xx_nand_get_variant(struct platform_device *pdev)
++{
++	const struct of_device_id *of_id =
++			of_match_device(pxa3xx_nand_dt_ids, &pdev->dev);
++	if (!of_id)
++		return PXA3XX_NAND_VARIANT_PXA;
++	return (enum pxa3xx_nand_variant)of_id->data;
++}
+ 
+ static int pxa3xx_nand_probe_dt(struct platform_device *pdev)
+ {
+@@ -1237,12 +1283,6 @@ static int pxa3xx_nand_probe_dt(struct platform_device *pdev)
+ 
+ 	return 0;
+ }
+-#else
+-static inline int pxa3xx_nand_probe_dt(struct platform_device *pdev)
+-{
+-	return 0;
+-}
+-#endif
+ 
+ static int pxa3xx_nand_probe(struct platform_device *pdev)
+ {
+@@ -1251,11 +1291,18 @@ static int pxa3xx_nand_probe(struct platform_device *pdev)
+ 	struct pxa3xx_nand_info *info;
+ 	int ret, cs, probe_success;
+ 
++#ifndef ARCH_HAS_DMA
++	if (use_dma) {
++		use_dma = 0;
++		dev_warn(&pdev->dev,
++			 "This platform can't do DMA on this device\n");
++	}
++#endif
+ 	ret = pxa3xx_nand_probe_dt(pdev);
+ 	if (ret)
+ 		return ret;
+ 
+-	pdata = pdev->dev.platform_data;
++	pdata = dev_get_platdata(&pdev->dev);
+ 	if (!pdata) {
+ 		dev_err(&pdev->dev, "no platform data defined\n");
+ 		return -ENODEV;
+@@ -1268,10 +1315,19 @@ static int pxa3xx_nand_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	info = platform_get_drvdata(pdev);
++	info->variant = pxa3xx_nand_get_variant(pdev);
+ 	probe_success = 0;
+ 	for (cs = 0; cs < pdata->num_cs; cs++) {
++		struct mtd_info *mtd = info->host[cs]->mtd;
++
++		/*
++		 * The mtd name matches the one used in 'mtdparts' kernel
++		 * parameter. This name cannot be changed or otherwise
++		 * user's mtd partitions configuration would get broken.
++		 */
++		mtd->name = "pxa3xx_nand-0";
+ 		info->cs = cs;
+-		ret = pxa3xx_nand_scan(info->host[cs]->mtd);
++		ret = pxa3xx_nand_scan(mtd);
+ 		if (ret) {
+ 			dev_warn(&pdev->dev, "failed to scan nand at cs %d\n",
+ 				cs);
+@@ -1279,7 +1335,7 @@ static int pxa3xx_nand_probe(struct platform_device *pdev)
+ 		}
+ 
+ 		ppdata.of_node = pdev->dev.of_node;
+-		ret = mtd_device_parse_register(info->host[cs]->mtd, NULL,
++		ret = mtd_device_parse_register(mtd, NULL,
+ 						&ppdata, pdata->parts[cs],
+ 						pdata->nr_parts[cs]);
+ 		if (!ret)
+@@ -1302,7 +1358,7 @@ static int pxa3xx_nand_suspend(struct platform_device *pdev, pm_message_t state)
+ 	struct mtd_info *mtd;
+ 	int cs;
+ 
+-	pdata = pdev->dev.platform_data;
++	pdata = dev_get_platdata(&pdev->dev);
+ 	if (info->state) {
+ 		dev_err(&pdev->dev, "driver busy, state = %d\n", info->state);
+ 		return -EAGAIN;
+@@ -1323,7 +1379,7 @@ static int pxa3xx_nand_resume(struct platform_device *pdev)
+ 	struct mtd_info *mtd;
+ 	int cs;
+ 
+-	pdata = pdev->dev.platform_data;
++	pdata = dev_get_platdata(&pdev->dev);
+ 	/* We don't want to handle interrupt without calling mtd routine */
+ 	disable_int(info, NDCR_INT_MASK);
+ 
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 19cf062..68bf6eb 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2360,8 +2360,12 @@ static int mvneta_mdio_probe(struct mvneta_port *pp)
+ {
+ 	struct phy_device *phy_dev;
+ 
+-	phy_dev = of_phy_connect(pp->dev, pp->phy_node, mvneta_adjust_link, 0,
+-				 pp->phy_interface);
++	if (pp->phy_node)
++		phy_dev = of_phy_connect(pp->dev, pp->phy_node, mvneta_adjust_link, 0,
++					 pp->phy_interface);
++	else
++		phy_dev = of_phy_connect_fixed_link(pp->dev, mvneta_adjust_link,
++						    pp->phy_interface);
+ 	if (!phy_dev) {
+ 		netdev_err(pp->dev, "could not find the PHY\n");
+ 		return -ENODEV;
+@@ -2719,9 +2723,13 @@ static int mvneta_probe(struct platform_device *pdev)
+ 
+ 	phy_node = of_parse_phandle(dn, "phy", 0);
+ 	if (!phy_node) {
+-		dev_err(&pdev->dev, "no associated PHY\n");
+-		err = -ENODEV;
+-		goto err_free_irq;
++		/* No 'phy' found, see if we have a 'fixed-link'
++		 * property */
++		err = of_phy_register_fixed_link(dn);
++		if (err < 0) {
++			dev_err(&pdev->dev, "no 'phy' or 'fixed-link' properties\n");
++			goto err_free_irq;
++		}
+ 	}
+ 
+ 	phy_mode = of_get_phy_mode(dn);
+diff --git a/drivers/net/phy/fixed.c b/drivers/net/phy/fixed.c
+index ba55adf..bd1e67a 100644
+--- a/drivers/net/phy/fixed.c
++++ b/drivers/net/phy/fixed.c
+@@ -195,6 +195,8 @@ int fixed_phy_add(unsigned int irq, int phy_id,
+ 
+ 	list_add_tail(&fp->node, &fmb->phys);
+ 
++	mdiobus_scan(fmb->mii_bus, phy_id);
++
+ 	return 0;
+ 
+ err_regs:
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index d5a57a9..66d5591 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -14,6 +14,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/err.h>
+ #include <linux/phy.h>
++#include <linux/phy_fixed.h>
+ #include <linux/of.h>
+ #include <linux/of_irq.h>
+ #include <linux/of_mdio.h>
+@@ -215,10 +216,6 @@ EXPORT_SYMBOL(of_phy_connect);
+  * @dev: pointer to net_device claiming the phy
+  * @hndlr: Link state callback for the network device
+  * @iface: PHY data interface type
+- *
+- * This function is a temporary stop-gap and will be removed soon.  It is
+- * only to support the fs_enet, ucc_geth and gianfar Ethernet drivers.  Do
+- * not call this function from new drivers.
+  */
+ struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
+ 					     void (*hndlr)(struct net_device *),
+@@ -247,3 +244,34 @@ struct phy_device *of_phy_connect_fixed_link(struct net_device *dev,
+ 	return IS_ERR(phy) ? NULL : phy;
+ }
+ EXPORT_SYMBOL(of_phy_connect_fixed_link);
++
++#if defined(CONFIG_FIXED_PHY)
++/**
++ * of_phy_register_fixed_link - Parse fixed-link property and register a dummy phy
++ * @np: pointer to the OF device node that contains the "fixed-link"
++ * property for which a dummy phy should be registered.
++ */
++#define FIXED_LINK_PROPERTIES_COUNT 5
++int of_phy_register_fixed_link(struct device_node *np)
++{
++	struct fixed_phy_status status = {};
++	u32 fixed_link_props[FIXED_LINK_PROPERTIES_COUNT];
++	int ret;
++
++	ret = of_property_read_u32_array(np, "fixed-link",
++					 fixed_link_props,
++					 FIXED_LINK_PROPERTIES_COUNT);
++	if (ret < 0)
++		return ret;
++
++	status.link       = 1;
++	status.duplex     = fixed_link_props[1];
++	status.speed      = fixed_link_props[2];
++	status.pause      = fixed_link_props[3];
++	status.asym_pause = fixed_link_props[4];
++
++	return fixed_phy_add(PHY_POLL, fixed_link_props[0],
++			     &status);
++}
++EXPORT_SYMBOL(of_phy_register_fixed_link);
++#endif
+diff --git a/drivers/of/of_pci.c b/drivers/of/of_pci.c
+index 42c687a..e5ca008 100644
+--- a/drivers/of/of_pci.c
++++ b/drivers/of/of_pci.c
+@@ -89,3 +89,48 @@ int of_pci_parse_bus_range(struct device_node *node, struct resource *res)
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(of_pci_parse_bus_range);
++
++#ifdef CONFIG_PCI_MSI
++
++static LIST_HEAD(of_pci_msi_chip_list);
++static DEFINE_MUTEX(of_pci_msi_chip_mutex);
++
++int of_pci_msi_chip_add(struct msi_chip *chip)
++{
++	if (!of_property_read_bool(chip->of_node, "msi-controller"))
++		return -EINVAL;
++
++	mutex_lock(&of_pci_msi_chip_mutex);
++	list_add(&chip->list, &of_pci_msi_chip_list);
++	mutex_unlock(&of_pci_msi_chip_mutex);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(of_pci_msi_chip_add);
++
++void of_pci_msi_chip_remove(struct msi_chip *chip)
++{
++	mutex_lock(&of_pci_msi_chip_mutex);
++	list_del(&chip->list);
++	mutex_unlock(&of_pci_msi_chip_mutex);
++}
++EXPORT_SYMBOL_GPL(of_pci_msi_chip_remove);
++
++struct msi_chip *of_pci_find_msi_chip_by_node(struct device_node *of_node)
++{
++	struct msi_chip *c;
++
++	mutex_lock(&of_pci_msi_chip_mutex);
++	list_for_each_entry(c, &of_pci_msi_chip_list, list) {
++		if (c->of_node == of_node) {
++			mutex_unlock(&of_pci_msi_chip_mutex);
++			return c;
++		}
++	}
++	mutex_unlock(&of_pci_msi_chip_mutex);
++
++	return NULL;
++}
++EXPORT_SYMBOL_GPL(of_pci_find_msi_chip_by_node);
++
++#endif /* CONFIG_PCI_MSI */
+diff --git a/drivers/pci/Kconfig b/drivers/pci/Kconfig
+index 6f64399..c030a0d 100644
+--- a/drivers/pci/Kconfig
++++ b/drivers/pci/Kconfig
+@@ -1,13 +1,9 @@
+ #
+ # PCI configuration
+ #
+-config ARCH_SUPPORTS_MSI
+-	bool
+-
+ config PCI_MSI
+ 	bool "Message Signaled Interrupts (MSI and MSI-X)"
+ 	depends on PCI
+-	depends on ARCH_SUPPORTS_MSI
+ 	help
+ 	   This allows device drivers to enable MSI (Message Signaled
+ 	   Interrupts).  Message Signaled Interrupts enable a device to
+diff --git a/drivers/pci/host/pci-mvebu.c b/drivers/pci/host/pci-mvebu.c
+index 145ddbd..e40035b 100644
+--- a/drivers/pci/host/pci-mvebu.c
++++ b/drivers/pci/host/pci-mvebu.c
+@@ -11,6 +11,7 @@
+ #include <linux/clk.h>
+ #include <linux/module.h>
+ #include <linux/mbus.h>
++#include <linux/msi.h>
+ #include <linux/slab.h>
+ #include <linux/platform_device.h>
+ #include <linux/of_address.h>
+@@ -103,6 +104,7 @@ struct mvebu_pcie_port;
+ struct mvebu_pcie {
+ 	struct platform_device *pdev;
+ 	struct mvebu_pcie_port *ports;
++	struct msi_chip *msi;
+ 	struct resource io;
+ 	struct resource realio;
+ 	struct resource mem;
+@@ -673,6 +675,12 @@ static struct pci_bus *mvebu_pcie_scan_bus(int nr, struct pci_sys_data *sys)
+ 	return bus;
+ }
+ 
++void mvebu_pcie_add_bus(struct pci_bus *bus)
++{
++	struct mvebu_pcie *pcie = sys_to_pcie(bus->sysdata);
++	bus->msi = pcie->msi;
++}
++
+ resource_size_t mvebu_pcie_align_resource(struct pci_dev *dev,
+ 					  const struct resource *res,
+ 					  resource_size_t start,
+@@ -709,6 +717,7 @@ static void __init mvebu_pcie_enable(struct mvebu_pcie *pcie)
+ 	hw.map_irq        = mvebu_pcie_map_irq;
+ 	hw.ops            = &mvebu_pcie_ops;
+ 	hw.align_resource = mvebu_pcie_align_resource;
++	hw.add_bus        = mvebu_pcie_add_bus;
+ 
+ 	pci_common_init(&hw);
+ }
+@@ -733,6 +742,21 @@ mvebu_pcie_map_registers(struct platform_device *pdev,
+ 	return devm_request_and_ioremap(&pdev->dev, &regs);
+ }
+ 
++static void __init mvebu_pcie_msi_enable(struct mvebu_pcie *pcie)
++{
++	struct device_node *msi_node;
++
++	msi_node = of_parse_phandle(pcie->pdev->dev.of_node,
++				    "msi-parent", 0);
++	if (!msi_node)
++		return;
++
++	pcie->msi = of_pci_find_msi_chip_by_node(msi_node);
++
++	if (pcie->msi)
++		pcie->msi->dev = &pcie->pdev->dev;
++}
++
+ #define DT_FLAGS_TO_TYPE(flags)       (((flags) >> 24) & 0x03)
+ #define    DT_TYPE_IO                 0x1
+ #define    DT_TYPE_MEM32              0x2
+@@ -911,6 +935,8 @@ static int __init mvebu_pcie_probe(struct platform_device *pdev)
+ 		i++;
+ 	}
+ 
++	mvebu_pcie_msi_enable(pcie);
++
+ 	mvebu_pcie_enable(pcie);
+ 
+ 	return 0;
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index 2c10752..78aa314 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -30,20 +30,44 @@ static int pci_msi_enable = 1;
+ 
+ /* Arch hooks */
+ 
+-#ifndef arch_msi_check_device
+-int arch_msi_check_device(struct pci_dev *dev, int nvec, int type)
++int __weak arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
+ {
++	struct msi_chip *chip = dev->bus->msi;
++	int err;
++
++	if (!chip || !chip->setup_irq)
++		return -EINVAL;
++
++	err = chip->setup_irq(chip, dev, desc);
++	if (err < 0)
++		return err;
++
++	irq_set_chip_data(desc->irq, chip);
++
+ 	return 0;
+ }
+-#endif
+ 
+-#ifndef arch_setup_msi_irqs
+-# define arch_setup_msi_irqs default_setup_msi_irqs
+-# define HAVE_DEFAULT_MSI_SETUP_IRQS
+-#endif
++void __weak arch_teardown_msi_irq(unsigned int irq)
++{
++	struct msi_chip *chip = irq_get_chip_data(irq);
+ 
+-#ifdef HAVE_DEFAULT_MSI_SETUP_IRQS
+-int default_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
++	if (!chip || !chip->teardown_irq)
++		return;
++
++	chip->teardown_irq(chip, irq);
++}
++
++int __weak arch_msi_check_device(struct pci_dev *dev, int nvec, int type)
++{
++	struct msi_chip *chip = dev->bus->msi;
++
++	if (!chip || !chip->check_device)
++		return 0;
++
++	return chip->check_device(chip, dev, nvec, type);
++}
++
++int __weak arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+ {
+ 	struct msi_desc *entry;
+ 	int ret;
+@@ -65,14 +89,11 @@ int default_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+ 
+ 	return 0;
+ }
+-#endif
+-
+-#ifndef arch_teardown_msi_irqs
+-# define arch_teardown_msi_irqs default_teardown_msi_irqs
+-# define HAVE_DEFAULT_MSI_TEARDOWN_IRQS
+-#endif
+ 
+-#ifdef HAVE_DEFAULT_MSI_TEARDOWN_IRQS
++/*
++ * We have a default implementation available as a separate non-weak
++ * function, as it is used by the Xen x86 PCI code
++ */
+ void default_teardown_msi_irqs(struct pci_dev *dev)
+ {
+ 	struct msi_desc *entry;
+@@ -86,14 +107,12 @@ void default_teardown_msi_irqs(struct pci_dev *dev)
+ 			arch_teardown_msi_irq(entry->irq + i);
+ 	}
+ }
+-#endif
+ 
+-#ifndef arch_restore_msi_irqs
+-# define arch_restore_msi_irqs default_restore_msi_irqs
+-# define HAVE_DEFAULT_MSI_RESTORE_IRQS
+-#endif
++void __weak arch_teardown_msi_irqs(struct pci_dev *dev)
++{
++	return default_teardown_msi_irqs(dev);
++}
+ 
+-#ifdef HAVE_DEFAULT_MSI_RESTORE_IRQS
+ void default_restore_msi_irqs(struct pci_dev *dev, int irq)
+ {
+ 	struct msi_desc *entry;
+@@ -111,7 +130,11 @@ void default_restore_msi_irqs(struct pci_dev *dev, int irq)
+ 	if (entry)
+ 		write_msi_msg(irq, &entry->msg);
+ }
+-#endif
++
++void __weak arch_restore_msi_irqs(struct pci_dev *dev, int irq)
++{
++	return default_restore_msi_irqs(dev, irq);
++}
+ 
+ static void msi_set_enable(struct pci_dev *dev, int enable)
+ {
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index ea37072..6ebe6ab 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -634,6 +634,7 @@ static struct pci_bus *pci_alloc_child_bus(struct pci_bus *parent,
+ 
+ 	child->parent = parent;
+ 	child->ops = parent->ops;
++	child->msi = parent->msi;
+ 	child->sysdata = parent->sysdata;
+ 	child->bus_flags = parent->bus_flags;
+ 
+diff --git a/include/linux/msi.h b/include/linux/msi.h
+index 20c2d6d..f27decb 100644
+--- a/include/linux/msi.h
++++ b/include/linux/msi.h
+@@ -50,12 +50,31 @@ struct msi_desc {
+ };
+ 
+ /*
+- * The arch hook for setup up msi irqs
++ * The arch hooks to setup up msi irqs. Those functions are
++ * implemented as weak symbols so that they /can/ be overriden by
++ * architecture specific code if needed.
+  */
+ int arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc);
+ void arch_teardown_msi_irq(unsigned int irq);
+ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type);
+ void arch_teardown_msi_irqs(struct pci_dev *dev);
+ int arch_msi_check_device(struct pci_dev* dev, int nvec, int type);
++void arch_restore_msi_irqs(struct pci_dev *dev, int irq);
++
++void default_teardown_msi_irqs(struct pci_dev *dev);
++void default_restore_msi_irqs(struct pci_dev *dev, int irq);
++
++struct msi_chip {
++	struct module *owner;
++	struct device *dev;
++	struct device_node *of_node;
++	struct list_head list;
++
++	int (*setup_irq)(struct msi_chip *chip, struct pci_dev *dev,
++			 struct msi_desc *desc);
++	void (*teardown_irq)(struct msi_chip *chip, unsigned int irq);
++	int (*check_device)(struct msi_chip *chip, struct pci_dev *dev,
++			    int nvec, int type);
++};
+ 
+ #endif /* LINUX_MSI_H */
+diff --git a/include/linux/mtd/nand.h b/include/linux/mtd/nand.h
+index 793e39b..c778541 100644
+--- a/include/linux/mtd/nand.h
++++ b/include/linux/mtd/nand.h
+@@ -202,6 +202,10 @@ typedef enum {
+ /* Keep gcc happy */
+ struct nand_chip;
+ 
++/* ONFI features */
++#define ONFI_FEATURE_16_BIT_BUS		(1 << 0)
++#define ONFI_FEATURE_EXT_PARAM_PAGE	(1 << 7)
++
+ /* ONFI timing mode, used in both asynchronous and synchronous mode */
+ #define ONFI_TIMING_MODE_0		(1 << 0)
+ #define ONFI_TIMING_MODE_1		(1 << 1)
+@@ -224,7 +228,10 @@ struct nand_onfi_params {
+ 	__le16 revision;
+ 	__le16 features;
+ 	__le16 opt_cmd;
+-	u8 reserved[22];
++	u8 reserved0[2];
++	__le16 ext_param_page_length; /* since ONFI 2.1 */
++	u8 num_of_param_pages;        /* since ONFI 2.1 */
++	u8 reserved1[17];
+ 
+ 	/* manufacturer information block */
+ 	char manufacturer[12];
+@@ -281,6 +288,40 @@ struct nand_onfi_params {
+ 
+ #define ONFI_CRC_BASE	0x4F4E
+ 
++/* Extended ECC information Block Definition (since ONFI 2.1) */
++struct onfi_ext_ecc_info {
++	u8 ecc_bits;
++	u8 codeword_size;
++	__le16 bb_per_lun;
++	__le16 block_endurance;
++	u8 reserved[2];
++} __packed;
++
++#define ONFI_SECTION_TYPE_0	0	/* Unused section. */
++#define ONFI_SECTION_TYPE_1	1	/* for additional sections. */
++#define ONFI_SECTION_TYPE_2	2	/* for ECC information. */
++struct onfi_ext_section {
++	u8 type;
++	u8 length;
++} __packed;
++
++#define ONFI_EXT_SECTION_MAX 8
++
++/* Extended Parameter Page Definition (since ONFI 2.1) */
++struct onfi_ext_param_page {
++	__le16 crc;
++	u8 sig[4];             /* 'E' 'P' 'P' 'S' */
++	u8 reserved0[10];
++	struct onfi_ext_section sections[ONFI_EXT_SECTION_MAX];
++
++	/*
++	 * The actual size of the Extended Parameter Page is in
++	 * @ext_param_page_length of nand_onfi_params{}.
++	 * The following are the variable length sections.
++	 * So we do not add any fields below. Please see the ONFI spec.
++	 */
++} __packed;
++
+ /**
+  * struct nand_hw_control - Control structure for hardware controller (e.g ECC generator) shared among independent devices
+  * @lock:               protection lock
+@@ -434,6 +475,12 @@ struct nand_buffers {
+  *			bad block marker position; i.e., BBM == 11110111b is
+  *			not bad when badblockbits == 7
+  * @cellinfo:		[INTERN] MLC/multichip data from chip ident
++ * @ecc_strength_ds:	[INTERN] ECC correctability from the datasheet.
++ *			Minimum amount of bit errors per @ecc_step_ds guaranteed
++ *			to be correctable. If unknown, set to zero.
++ * @ecc_step_ds:	[INTERN] ECC step required by the @ecc_strength_ds,
++ *                      also from the datasheet. It is the recommended ECC step
++ *			size, if known; if unknown, set to zero.
+  * @numchips:		[INTERN] number of physical chips
+  * @chipsize:		[INTERN] the size of one chip for multichip arrays
+  * @pagemask:		[INTERN] page number mask = number of (pages / chip) - 1
+@@ -510,6 +557,8 @@ struct nand_chip {
+ 	unsigned int pagebuf_bitflips;
+ 	int subpagesize;
+ 	uint8_t cellinfo;
++	uint16_t ecc_strength_ds;
++	uint16_t ecc_step_ds;
+ 	int badblockpos;
+ 	int badblockbits;
+ 
+@@ -709,6 +758,12 @@ struct platform_nand_chip *get_platform_nandchip(struct mtd_info *mtd)
+ 	return chip->priv;
+ }
+ 
++/* return the supported features. */
++static inline int onfi_feature(struct nand_chip *chip)
++{
++	return chip->onfi_version ? le16_to_cpu(chip->onfi_params.features) : 0;
++}
++
+ /* return the supported asynchronous timing mode. */
+ static inline int onfi_get_async_timing_mode(struct nand_chip *chip)
+ {
+diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
+index 8163107..bf6efea 100644
+--- a/include/linux/of_mdio.h
++++ b/include/linux/of_mdio.h
+@@ -57,4 +57,14 @@ static inline struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
+ }
+ #endif /* CONFIG_OF */
+ 
++#if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
++extern int of_phy_register_fixed_link(struct device_node *np);
++#else
++static inline int of_phy_register_fixed_link(struct device_node *np)
++{
++	return -ENOSYS;
++}
++#endif
++
++
+ #endif /* __LINUX_OF_MDIO_H */
+diff --git a/include/linux/of_pci.h b/include/linux/of_pci.h
+index 7a04826..fd9c408 100644
+--- a/include/linux/of_pci.h
++++ b/include/linux/of_pci.h
+@@ -2,6 +2,7 @@
+ #define __OF_PCI_H
+ 
+ #include <linux/pci.h>
++#include <linux/msi.h>
+ 
+ struct pci_dev;
+ struct of_irq;
+@@ -13,4 +14,15 @@ struct device_node *of_pci_find_child_device(struct device_node *parent,
+ int of_pci_get_devfn(struct device_node *np);
+ int of_pci_parse_bus_range(struct device_node *node, struct resource *res);
+ 
++#if defined(CONFIG_OF) && defined(CONFIG_PCI_MSI)
++int of_pci_msi_chip_add(struct msi_chip *chip);
++void of_pci_msi_chip_remove(struct msi_chip *chip);
++struct msi_chip *of_pci_find_msi_chip_by_node(struct device_node *of_node);
++#else
++static inline int of_pci_msi_chip_add(struct msi_chip *chip) { return -EINVAL; }
++static inline void of_pci_msi_chip_remove(struct msi_chip *chip) { }
++static inline struct msi_chip *
++of_pci_find_msi_chip_by_node(struct device_node *of_node) { return NULL; }
++#endif
++
+ #endif
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 3a24e4f..7ffc012 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -432,6 +432,7 @@ struct pci_bus {
+ 	struct resource busn_res;	/* bus numbers routed to this bus */
+ 
+ 	struct pci_ops	*ops;		/* configuration access functions */
++	struct msi_chip	*msi;		/* MSI controller */
+ 	void		*sysdata;	/* hook for sys-specific extension */
+ 	struct proc_dir_entry *procdir;	/* directory entry in /proc/bus/pci */
+ 
+diff --git a/include/linux/platform_data/mtd-nand-pxa3xx.h b/include/linux/platform_data/mtd-nand-pxa3xx.h
+index c42f39f..ffb8019 100644
+--- a/include/linux/platform_data/mtd-nand-pxa3xx.h
++++ b/include/linux/platform_data/mtd-nand-pxa3xx.h
+@@ -16,19 +16,6 @@ struct pxa3xx_nand_timing {
+ 	unsigned int	tAR;  /* ND_ALE low to ND_nRE low delay */
+ };
+ 
+-struct pxa3xx_nand_cmdset {
+-	uint16_t	read1;
+-	uint16_t	read2;
+-	uint16_t	program;
+-	uint16_t	read_status;
+-	uint16_t	read_id;
+-	uint16_t	erase;
+-	uint16_t	reset;
+-	uint16_t	lock;
+-	uint16_t	unlock;
+-	uint16_t	lock_status;
+-};
+-
+ struct pxa3xx_nand_flash {
+ 	char		*name;
+ 	uint32_t	chip_id;
+diff --git a/include/linux/time-armada-370-xp.h b/include/linux/time-armada-370-xp.h
+deleted file mode 100644
+index dfdfdc0..0000000
+--- a/include/linux/time-armada-370-xp.h
++++ /dev/null
+@@ -1,18 +0,0 @@
+-/*
+- * Marvell Armada 370/XP SoC timer handling.
+- *
+- * Copyright (C) 2012 Marvell
+- *
+- * Lior Amsalem <alior@marvell.com>
+- * Gregory CLEMENT <gregory.clement@free-electrons.com>
+- * Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+- *
+- */
+-#ifndef __TIME_ARMADA_370_XPPRCMU_H
+-#define __TIME_ARMADA_370_XPPRCMU_H
+-
+-#include <linux/init.h>
+-
+-void __init armada_370_xp_timer_init(void);
+-
+-#endif
+-- 
+1.7.9.5
+

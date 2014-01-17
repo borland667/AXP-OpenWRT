@@ -1,0 +1,3879 @@
+From 36ad4b0bd9b8cffe634bd69717c8844195f1b5d3 Mon Sep 17 00:00:00 2001
+From: Seif Mazareeb <seif.mazareeb@gmail.com>
+Date: Thu, 16 Jan 2014 15:17:16 -0800
+Subject: [PATCH 3/3] Back port of the patches accepted to the Linux mainline
+ related to mvebu SoC (Armada XP, and Armada 370)
+ between Linux v3.12, and Linux v3.13. This work mainly:
+ 	* Finishes work for sharing the pxa nand driver 
+   (drivers/mtd/nand/pxa3xx_nand.c) between the PXA
+ family, 	  and the Armada family. 	* timer
+ initialization update, and access function for the 	
+  Armada family. 	* Generic IRQ handling
+ backporting. 	* Some bug fixes.
+
+Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
+---
+ .../bindings/interrupt-controller/interrupts.txt   |   29 +-
+ .../devicetree/bindings/mtd/pxa3xx-nand.txt        |    2 +
+ .../bindings/timer/marvell,armada-370-xp-timer.txt |   36 +-
+ Documentation/devicetree/bindings/usb/usb-xhci.txt |   14 +
+ arch/arm/boot/dts/armada-370-rd.dts                |   32 +-
+ arch/arm/boot/dts/armada-370-xp.dtsi               |    2 -
+ arch/arm/boot/dts/armada-370.dtsi                  |    5 +
+ arch/arm/boot/dts/armada-xp-mv78230.dtsi           |   24 +-
+ arch/arm/boot/dts/armada-xp-mv78260.dtsi           |  109 ++-
+ arch/arm/boot/dts/armada-xp.dtsi                   |   15 +-
+ arch/arm/boot/dts/testcases/tests-interrupts.dtsi  |   41 ++
+ arch/arm/boot/dts/testcases/tests.dtsi             |    1 +
+ arch/arm/configs/mvebu_defconfig                   |    2 +
+ arch/arm/mach-integrator/pci_v3.c                  |  278 ++++++++
+ arch/arm/mach-mvebu/armada-370-xp.h                |    2 +
+ arch/arm/mach-mvebu/common.h                       |    3 -
+ arch/arm/mach-mvebu/pmsu.c                         |    2 +-
+ arch/microblaze/pci/pci-common.c                   |   11 +-
+ arch/mips/pci/fixup-lantiq.c                       |    7 +-
+ arch/powerpc/kernel/pci-common.c                   |   11 +-
+ arch/powerpc/platforms/cell/celleb_scc_pciex.c     |    7 +-
+ arch/powerpc/platforms/cell/celleb_scc_sio.c       |    7 +-
+ arch/powerpc/platforms/cell/spider-pic.c           |    9 +-
+ arch/powerpc/platforms/cell/spu_manage.c           |   13 +-
+ arch/powerpc/platforms/fsl_uli1575.c               |   12 +-
+ arch/powerpc/platforms/powermac/pic.c              |   10 +-
+ arch/powerpc/platforms/pseries/event_sources.c     |    8 +-
+ arch/powerpc/sysdev/mpic_msi.c                     |    8 +-
+ arch/x86/kernel/devicetree.c                       |    7 +-
+ drivers/ata/sata_mv.c                              |   10 +
+ drivers/clocksource/time-armada-370-xp.c           |  144 ++--
+ drivers/mtd/nand/Kconfig                           |    6 +-
+ drivers/mtd/nand/pxa3xx_nand.c                     |  754 +++++++++++++++-----
+ drivers/net/ethernet/marvell/mvneta.c              |    4 +-
+ drivers/of/address.c                               |   10 +-
+ drivers/of/base.c                                  |    9 +
+ drivers/of/irq.c                                   |  172 +++--
+ drivers/of/of_pci_irq.c                            |   15 +-
+ drivers/of/selftest.c                              |  161 ++++-
+ drivers/pci/host/pci-mvebu.c                       |   46 +-
+ drivers/usb/host/xhci-plat.c                       |   20 +
+ drivers/usb/host/xhci.c                            |   19 +-
+ include/linux/of.h                                 |    1 +
+ include/linux/of_irq.h                             |   57 +-
+ include/linux/of_pci.h                             |    4 +-
+ include/linux/platform_data/mtd-nand-pxa3xx.h      |    3 +
+ kernel/irq/irqdomain.c                             |   15 +-
+ 47 files changed, 1614 insertions(+), 543 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/usb/usb-xhci.txt
+ create mode 100644 arch/arm/boot/dts/testcases/tests-interrupts.dtsi
+
+diff --git a/Documentation/devicetree/bindings/interrupt-controller/interrupts.txt b/Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
+index 72a06c0..1486497 100644
+--- a/Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
++++ b/Documentation/devicetree/bindings/interrupt-controller/interrupts.txt
+@@ -4,16 +4,33 @@ Specifying interrupt information for devices
+ 1) Interrupt client nodes
+ -------------------------
+ 
+-Nodes that describe devices which generate interrupts must contain an
+-"interrupts" property. This property must contain a list of interrupt
+-specifiers, one per output interrupt. The format of the interrupt specifier is
+-determined by the interrupt controller to which the interrupts are routed; see
+-section 2 below for details.
++Nodes that describe devices which generate interrupts must contain an either an
++"interrupts" property or an "interrupts-extended" property. These properties
++contain a list of interrupt specifiers, one per output interrupt. The format of
++the interrupt specifier is determined by the interrupt controller to which the
++interrupts are routed; see section 2 below for details.
++
++  Example:
++	interrupt-parent = <&intc1>;
++	interrupts = <5 0>, <6 0>;
+ 
+ The "interrupt-parent" property is used to specify the controller to which
+ interrupts are routed and contains a single phandle referring to the interrupt
+ controller node. This property is inherited, so it may be specified in an
+-interrupt client node or in any of its parent nodes.
++interrupt client node or in any of its parent nodes. Interrupts listed in the
++"interrupts" property are always in reference to the node's interrupt parent.
++
++The "interrupts-extended" property is a special form for use when a node needs
++to reference multiple interrupt parents. Each entry in this property contains
++both the parent phandle and the interrupt specifier. "interrupts-extended"
++should only be used when a device has multiple interrupt parents.
++
++  Example:
++	interrupts-extended = <&intc1 5 1>, <&intc2 1 0>;
++
++A device node may contain either "interrupts" or "interrupts-extended", but not
++both. If both properties are present, then the operating system should log an
++error and use only the data in "interrupts".
+ 
+ 2) Interrupt controller nodes
+ -----------------------------
+diff --git a/Documentation/devicetree/bindings/mtd/pxa3xx-nand.txt b/Documentation/devicetree/bindings/mtd/pxa3xx-nand.txt
+index f1421e2..a0bcfd0 100644
+--- a/Documentation/devicetree/bindings/mtd/pxa3xx-nand.txt
++++ b/Documentation/devicetree/bindings/mtd/pxa3xx-nand.txt
+@@ -13,6 +13,8 @@ Optional properties:
+  - marvell,nand-keep-config:	Set to keep the NAND controller config as set
+ 				by the bootloader
+  - num-cs:			Number of chipselect lines to usw
++ - nand-on-flash-bbt: 		boolean to enable on flash bbt option if
++				not present false
+ 
+ Example:
+ 
+diff --git a/Documentation/devicetree/bindings/timer/marvell,armada-370-xp-timer.txt b/Documentation/devicetree/bindings/timer/marvell,armada-370-xp-timer.txt
+index 3638112..f455182 100644
+--- a/Documentation/devicetree/bindings/timer/marvell,armada-370-xp-timer.txt
++++ b/Documentation/devicetree/bindings/timer/marvell,armada-370-xp-timer.txt
+@@ -2,14 +2,40 @@ Marvell Armada 370 and Armada XP Timers
+ ---------------------------------------
+ 
+ Required properties:
+-- compatible: Should be "marvell,armada-370-xp-timer"
++- compatible: Should be either "marvell,armada-370-timer" or
++  "marvell,armada-xp-timer" as appropriate.
+ - interrupts: Should contain the list of Global Timer interrupts and
+   then local timer interrupts
+ - reg: Should contain location and length for timers register. First
+   pair for the Global Timer registers, second pair for the
+   local/private timers.
+-- clocks: clock driving the timer hardware
+ 
+-Optional properties:
+-- marvell,timer-25Mhz: Tells whether the Global timer supports the 25
+-  Mhz fixed mode (available on Armada XP and not on Armada 370)
++Clocks required for compatible = "marvell,armada-370-timer":
++- clocks : Must contain a single entry describing the clock input
++
++Clocks required for compatible = "marvell,armada-xp-timer":
++- clocks : Must contain an entry for each entry in clock-names.
++- clock-names : Must include the following entries:
++  "nbclk" (L2/coherency fabric clock),
++  "fixed" (Reference 25 MHz fixed-clock).
++
++Examples:
++
++- Armada 370:
++
++	timer {
++		compatible = "marvell,armada-370-timer";
++		reg = <0x20300 0x30>, <0x21040 0x30>;
++		interrupts = <37>, <38>, <39>, <40>, <5>, <6>;
++		clocks = <&coreclk 2>;
++	};
++
++- Armada XP:
++
++	timer {
++		compatible = "marvell,armada-xp-timer";
++		reg = <0x20300 0x30>, <0x21040 0x30>;
++		interrupts = <37>, <38>, <39>, <40>, <5>, <6>;
++		clocks = <&coreclk 2>, <&refclk>;
++		clock-names = "nbclk", "fixed";
++	};
+diff --git a/Documentation/devicetree/bindings/usb/usb-xhci.txt b/Documentation/devicetree/bindings/usb/usb-xhci.txt
+new file mode 100644
+index 0000000..5752df0
+--- /dev/null
++++ b/Documentation/devicetree/bindings/usb/usb-xhci.txt
+@@ -0,0 +1,14 @@
++USB xHCI controllers
++
++Required properties:
++  - compatible: should be "xhci-platform".
++  - reg: should contain address and length of the standard XHCI
++    register set for the device.
++  - interrupts: one XHCI interrupt should be described here.
++
++Example:
++	usb@f0931000 {
++		compatible = "xhci-platform";
++		reg = <0xf0931000 0x8c8>;
++		interrupts = <0x0 0x4e 0x0>;
++	};
+diff --git a/arch/arm/boot/dts/armada-370-rd.dts b/arch/arm/boot/dts/armada-370-rd.dts
+index 0b3acf3..f81810a 100644
+--- a/arch/arm/boot/dts/armada-370-rd.dts
++++ b/arch/arm/boot/dts/armada-370-rd.dts
+@@ -31,6 +31,22 @@
+ 		ranges = <MBUS_ID(0xf0, 0x01) 0 0xd0000000 0x100000
+ 			  MBUS_ID(0x01, 0xe0) 0 0xfff00000 0x100000>;
+ 
++		pcie-controller {
++			status = "okay";
++
++			/* Internal mini-PCIe connector */
++			pcie@1,0 {
++				/* Port 0, Lane 0 */
++				status = "okay";
++			};
++
++			/* Internal mini-PCIe connector */
++			pcie@2,0 {
++				/* Port 1, Lane 0 */
++				status = "okay";
++			};
++		};
++
+ 		internal-regs {
+ 			serial@12000 {
+ 				clock-frequency = <200000000>;
+@@ -88,22 +104,6 @@
+ 					gpios = <&gpio0 6 1>;
+ 				};
+ 			};
+-
+-			pcie-controller {
+-				status = "okay";
+-
+-				/* Internal mini-PCIe connector */
+-				pcie@1,0 {
+-					/* Port 0, Lane 0 */
+-					status = "okay";
+-				};
+-
+-				/* Internal mini-PCIe connector */
+-				pcie@2,0 {
+-					/* Port 1, Lane 0 */
+-					status = "okay";
+-				};
+-			};
+ 		};
+ 	};
+  };
+diff --git a/arch/arm/boot/dts/armada-370-xp.dtsi b/arch/arm/boot/dts/armada-370-xp.dtsi
+index e9303b7..f59374e 100644
+--- a/arch/arm/boot/dts/armada-370-xp.dtsi
++++ b/arch/arm/boot/dts/armada-370-xp.dtsi
+@@ -143,10 +143,8 @@
+ 			};
+ 
+ 			timer@20300 {
+-				compatible = "marvell,armada-370-xp-timer";
+ 				reg = <0x20300 0x30>, <0x21040 0x30>;
+ 				interrupts = <37>, <38>, <39>, <40>, <5>, <6>;
+-				clocks = <&coreclk 2>;
+ 			};
+ 
+ 			sata@a0000 {
+diff --git a/arch/arm/boot/dts/armada-370.dtsi b/arch/arm/boot/dts/armada-370.dtsi
+index 17d30fc..9d809a1 100644
+--- a/arch/arm/boot/dts/armada-370.dtsi
++++ b/arch/arm/boot/dts/armada-370.dtsi
+@@ -163,6 +163,11 @@
+ 				interrupts = <91>;
+ 			};
+ 
++			timer@20300 {
++				compatible = "marvell,armada-370-timer";
++				clocks = <&coreclk 2>;
++			};
++
+ 			coreclk: mvebu-sar@18230 {
+ 				compatible = "marvell,armada-370-core-clock";
+ 				reg = <0x18230 0x08>;
+diff --git a/arch/arm/boot/dts/armada-xp-mv78230.dtsi b/arch/arm/boot/dts/armada-xp-mv78230.dtsi
+index ebaa6d3..7462762 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78230.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78230.dtsi
+@@ -47,7 +47,7 @@
+ 		/*
+ 		 * MV78230 has 2 PCIe units Gen2.0: One unit can be
+ 		 * configured as x4 or quad x1 lanes. One unit is
+-		 * x4/x1.
++		 * x1 only.
+ 		 */
+ 		pcie-controller {
+ 			compatible = "marvell,armada-xp-pcie";
+@@ -62,10 +62,10 @@
+ 
+ 			ranges =
+ 			       <0x82000000 0 0x40000 MBUS_ID(0xf0, 0x01) 0x40000 0 0x00002000   /* Port 0.0 registers */
+-				0x82000000 0 0x42000 MBUS_ID(0xf0, 0x01) 0x42000 0 0x00002000   /* Port 2.0 registers */
+ 				0x82000000 0 0x44000 MBUS_ID(0xf0, 0x01) 0x44000 0 0x00002000   /* Port 0.1 registers */
+ 				0x82000000 0 0x48000 MBUS_ID(0xf0, 0x01) 0x48000 0 0x00002000   /* Port 0.2 registers */
+ 				0x82000000 0 0x4c000 MBUS_ID(0xf0, 0x01) 0x4c000 0 0x00002000   /* Port 0.3 registers */
++				0x82000000 0 0x80000 MBUS_ID(0xf0, 0x01) 0x80000 0 0x00002000   /* Port 1.0 registers */
+ 				0x82000000 0x1 0       MBUS_ID(0x04, 0xe8) 0 1 0 /* Port 0.0 MEM */
+ 				0x81000000 0x1 0       MBUS_ID(0x04, 0xe0) 0 1 0 /* Port 0.0 IO  */
+ 				0x82000000 0x2 0       MBUS_ID(0x04, 0xd8) 0 1 0 /* Port 0.1 MEM */
+@@ -74,8 +74,8 @@
+ 				0x81000000 0x3 0       MBUS_ID(0x04, 0xb0) 0 1 0 /* Port 0.2 IO  */
+ 				0x82000000 0x4 0       MBUS_ID(0x04, 0x78) 0 1 0 /* Port 0.3 MEM */
+ 				0x81000000 0x4 0       MBUS_ID(0x04, 0x70) 0 1 0 /* Port 0.3 IO  */
+-				0x82000000 0x9 0       MBUS_ID(0x04, 0xf8) 0 1 0 /* Port 2.0 MEM */
+-				0x81000000 0x9 0       MBUS_ID(0x04, 0xf0) 0 1 0 /* Port 2.0 IO  */>;
++				0x82000000 0x5 0       MBUS_ID(0x08, 0xe8) 0 1 0 /* Port 1.0 MEM */
++				0x81000000 0x5 0       MBUS_ID(0x08, 0xe0) 0 1 0 /* Port 1.0 IO  */>;
+ 
+ 			pcie@1,0 {
+ 				device_type = "pci";
+@@ -145,20 +145,20 @@
+ 				status = "disabled";
+ 			};
+ 
+-			pcie@9,0 {
++			pcie@5,0 {
+ 				device_type = "pci";
+-				assigned-addresses = <0x82000800 0 0x42000 0 0x2000>;
+-				reg = <0x4800 0 0 0 0>;
++				assigned-addresses = <0x82000800 0 0x80000 0 0x2000>;
++				reg = <0x2800 0 0 0 0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+ 				#interrupt-cells = <1>;
+-				ranges = <0x82000000 0 0 0x82000000 0x9 0 1 0
+-					  0x81000000 0 0 0x81000000 0x9 0 1 0>;
++				ranges = <0x82000000 0 0 0x82000000 0x5 0 1 0
++					  0x81000000 0 0 0x81000000 0x5 0 1 0>;
+ 				interrupt-map-mask = <0 0 0 0>;
+-				interrupt-map = <0 0 0 0 &mpic 99>;
+-				marvell,pcie-port = <2>;
++				interrupt-map = <0 0 0 0 &mpic 62>;
++				marvell,pcie-port = <1>;
+ 				marvell,pcie-lane = <0>;
+-				clocks = <&gateclk 26>;
++				clocks = <&gateclk 9>;
+ 				status = "disabled";
+ 			};
+ 		};
+diff --git a/arch/arm/boot/dts/armada-xp-mv78260.dtsi b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
+index 165d7d5..5da7622 100644
+--- a/arch/arm/boot/dts/armada-xp-mv78260.dtsi
++++ b/arch/arm/boot/dts/armada-xp-mv78260.dtsi
+@@ -48,7 +48,7 @@
+ 		/*
+ 		 * MV78260 has 3 PCIe units Gen2.0: Two units can be
+ 		 * configured as x4 or quad x1 lanes. One unit is
+-		 * x4/x1.
++		 * x4 only.
+ 		 */
+ 		pcie-controller {
+ 			compatible = "marvell,armada-xp-pcie";
+@@ -68,7 +68,9 @@
+ 				0x82000000 0 0x48000 MBUS_ID(0xf0, 0x01) 0x48000 0 0x00002000   /* Port 0.2 registers */
+ 				0x82000000 0 0x4c000 MBUS_ID(0xf0, 0x01) 0x4c000 0 0x00002000   /* Port 0.3 registers */
+ 				0x82000000 0 0x80000 MBUS_ID(0xf0, 0x01) 0x80000 0 0x00002000   /* Port 1.0 registers */
+-				0x82000000 0 0x82000 MBUS_ID(0xf0, 0x01) 0x82000 0 0x00002000   /* Port 3.0 registers */
++				0x82000000 0 0x84000 MBUS_ID(0xf0, 0x01) 0x84000 0 0x00002000   /* Port 1.1 registers */
++				0x82000000 0 0x88000 MBUS_ID(0xf0, 0x01) 0x88000 0 0x00002000   /* Port 1.2 registers */
++				0x82000000 0 0x8c000 MBUS_ID(0xf0, 0x01) 0x8c000 0 0x00002000   /* Port 1.3 registers */
+ 				0x82000000 0x1 0     MBUS_ID(0x04, 0xe8) 0 1 0 /* Port 0.0 MEM */
+ 				0x81000000 0x1 0     MBUS_ID(0x04, 0xe0) 0 1 0 /* Port 0.0 IO  */
+ 				0x82000000 0x2 0     MBUS_ID(0x04, 0xd8) 0 1 0 /* Port 0.1 MEM */
+@@ -77,10 +79,18 @@
+ 				0x81000000 0x3 0     MBUS_ID(0x04, 0xb0) 0 1 0 /* Port 0.2 IO  */
+ 				0x82000000 0x4 0     MBUS_ID(0x04, 0x78) 0 1 0 /* Port 0.3 MEM */
+ 				0x81000000 0x4 0     MBUS_ID(0x04, 0x70) 0 1 0 /* Port 0.3 IO  */
+-				0x82000000 0x9 0     MBUS_ID(0x08, 0xe8) 0 1 0 /* Port 1.0 MEM */
+-				0x81000000 0x9 0     MBUS_ID(0x08, 0xe0) 0 1 0 /* Port 1.0 IO  */
+-				0x82000000 0xa 0     MBUS_ID(0x08, 0xf8) 0 1 0 /* Port 3.0 MEM */
+-				0x81000000 0xa 0     MBUS_ID(0x08, 0xf0) 0 1 0 /* Port 3.0 IO  */>;
++
++				0x82000000 0x5 0     MBUS_ID(0x08, 0xe8) 0 1 0 /* Port 1.0 MEM */
++				0x81000000 0x5 0     MBUS_ID(0x08, 0xe0) 0 1 0 /* Port 1.0 IO  */
++				0x82000000 0x6 0     MBUS_ID(0x08, 0xd8) 0 1 0 /* Port 1.1 MEM */
++				0x81000000 0x6 0     MBUS_ID(0x08, 0xd0) 0 1 0 /* Port 1.1 IO  */
++				0x82000000 0x7 0     MBUS_ID(0x08, 0xb8) 0 1 0 /* Port 1.2 MEM */
++				0x81000000 0x7 0     MBUS_ID(0x08, 0xb0) 0 1 0 /* Port 1.2 IO  */
++				0x82000000 0x8 0     MBUS_ID(0x08, 0x78) 0 1 0 /* Port 1.3 MEM */
++				0x81000000 0x8 0     MBUS_ID(0x08, 0x70) 0 1 0 /* Port 1.3 IO  */
++
++				0x82000000 0x9 0     MBUS_ID(0x04, 0xf8) 0 1 0 /* Port 2.0 MEM */
++				0x81000000 0x9 0     MBUS_ID(0x04, 0xf0) 0 1 0 /* Port 2.0 IO  */>;
+ 
+ 			pcie@1,0 {
+ 				device_type = "pci";
+@@ -106,8 +116,8 @@
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+ 				#interrupt-cells = <1>;
+-                                ranges = <0x82000000 0 0 0x82000000 0x2 0 1 0
+-                                          0x81000000 0 0 0x81000000 0x2 0 1 0>;
++				ranges = <0x82000000 0 0 0x82000000 0x2 0 1 0
++					  0x81000000 0 0 0x81000000 0x2 0 1 0>;
+ 				interrupt-map-mask = <0 0 0 0>;
+ 				interrupt-map = <0 0 0 0 &mpic 59>;
+ 				marvell,pcie-port = <0>;
+@@ -150,37 +160,88 @@
+ 				status = "disabled";
+ 			};
+ 
+-			pcie@9,0 {
++			pcie@5,0 {
+ 				device_type = "pci";
+-				assigned-addresses = <0x82000800 0 0x42000 0 0x2000>;
+-				reg = <0x4800 0 0 0 0>;
++				assigned-addresses = <0x82000800 0 0x80000 0 0x2000>;
++				reg = <0x2800 0 0 0 0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+ 				#interrupt-cells = <1>;
+-				ranges = <0x82000000 0 0 0x82000000 0x9 0 1 0
+-					  0x81000000 0 0 0x81000000 0x9 0 1 0>;
++				ranges = <0x82000000 0 0 0x82000000 0x5 0 1 0
++					  0x81000000 0 0 0x81000000 0x5 0 1 0>;
+ 				interrupt-map-mask = <0 0 0 0>;
+-				interrupt-map = <0 0 0 0 &mpic 99>;
+-				marvell,pcie-port = <2>;
++				interrupt-map = <0 0 0 0 &mpic 62>;
++				marvell,pcie-port = <1>;
+ 				marvell,pcie-lane = <0>;
+-				clocks = <&gateclk 26>;
++				clocks = <&gateclk 9>;
+ 				status = "disabled";
+ 			};
+ 
+-			pcie@10,0 {
++			pcie@6,0 {
+ 				device_type = "pci";
+-				assigned-addresses = <0x82000800 0 0x82000 0 0x2000>;
+-				reg = <0x5000 0 0 0 0>;
++				assigned-addresses = <0x82000800 0 0x84000 0 0x2000>;
++				reg = <0x3000 0 0 0 0>;
+ 				#address-cells = <3>;
+ 				#size-cells = <2>;
+ 				#interrupt-cells = <1>;
+-				ranges = <0x82000000 0 0 0x82000000 0xa 0 1 0
+-					  0x81000000 0 0 0x81000000 0xa 0 1 0>;
++				ranges = <0x82000000 0 0 0x82000000 0x6 0 1 0
++					  0x81000000 0 0 0x81000000 0x6 0 1 0>;
+ 				interrupt-map-mask = <0 0 0 0>;
+-				interrupt-map = <0 0 0 0 &mpic 103>;
+-				marvell,pcie-port = <3>;
++				interrupt-map = <0 0 0 0 &mpic 63>;
++				marvell,pcie-port = <1>;
++				marvell,pcie-lane = <1>;
++				clocks = <&gateclk 10>;
++				status = "disabled";
++			};
++
++			pcie@7,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x88000 0 0x2000>;
++				reg = <0x3800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x7 0 1 0
++					  0x81000000 0 0 0x81000000 0x7 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 64>;
++				marvell,pcie-port = <1>;
++				marvell,pcie-lane = <2>;
++				clocks = <&gateclk 11>;
++				status = "disabled";
++			};
++
++			pcie@8,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x8c000 0 0x2000>;
++				reg = <0x4000 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x8 0 1 0
++					  0x81000000 0 0 0x81000000 0x8 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 65>;
++				marvell,pcie-port = <1>;
++				marvell,pcie-lane = <3>;
++				clocks = <&gateclk 12>;
++				status = "disabled";
++			};
++
++			pcie@9,0 {
++				device_type = "pci";
++				assigned-addresses = <0x82000800 0 0x42000 0 0x2000>;
++				reg = <0x4800 0 0 0 0>;
++				#address-cells = <3>;
++				#size-cells = <2>;
++				#interrupt-cells = <1>;
++				ranges = <0x82000000 0 0 0x82000000 0x9 0 1 0
++					  0x81000000 0 0 0x81000000 0x9 0 1 0>;
++				interrupt-map-mask = <0 0 0 0>;
++				interrupt-map = <0 0 0 0 &mpic 99>;
++				marvell,pcie-port = <2>;
+ 				marvell,pcie-lane = <0>;
+-				clocks = <&gateclk 27>;
++				clocks = <&gateclk 26>;
+ 				status = "disabled";
+ 			};
+ 		};
+diff --git a/arch/arm/boot/dts/armada-xp.dtsi b/arch/arm/boot/dts/armada-xp.dtsi
+index 7ba99ce..fdddf27 100644
+--- a/arch/arm/boot/dts/armada-xp.dtsi
++++ b/arch/arm/boot/dts/armada-xp.dtsi
+@@ -48,7 +48,7 @@
+ 
+ 			armada-370-xp-pmsu@22000 {
+ 				compatible = "marvell,armada-370-xp-pmsu";
+-				reg = <0x22100 0x430>, <0x20800 0x20>;
++				reg = <0x22100 0x400>, <0x20800 0x20>;
+ 			};
+ 
+ 			serial@12200 {
+@@ -69,7 +69,9 @@
+ 			};
+ 
+ 			timer@20300 {
+-				marvell,timer-25Mhz;
++				compatible = "marvell,armada-xp-timer";
++				clocks = <&coreclk 2>, <&refclk>;
++				clock-names = "nbclk", "fixed";
+ 			};
+ 
+ 			coreclk: mvebu-sar@18230 {
+@@ -169,4 +171,13 @@
+ 			};
+ 		};
+ 	};
++
++	clocks {
++		/* 25 MHz reference crystal */
++		refclk: oscillator {
++			compatible = "fixed-clock";
++			#clock-cells = <0>;
++			clock-frequency = <25000000>;
++		};
++	};
+ };
+diff --git a/arch/arm/boot/dts/testcases/tests-interrupts.dtsi b/arch/arm/boot/dts/testcases/tests-interrupts.dtsi
+new file mode 100644
+index 0000000..6ecda71
+--- /dev/null
++++ b/arch/arm/boot/dts/testcases/tests-interrupts.dtsi
+@@ -0,0 +1,41 @@
++
++/ {
++	testcase-data {
++		interrupts {
++			#address-cells = <0>;
++			test_intc0: intc0 {
++				interrupt-controller;
++				#interrupt-cells = <1>;
++			};
++
++			test_intc1: intc1 {
++				interrupt-controller;
++				#interrupt-cells = <3>;
++			};
++
++			test_intc2: intc2 {
++				interrupt-controller;
++				#interrupt-cells = <2>;
++			};
++
++			test_intmap0: intmap0 {
++				#interrupt-cells = <1>;
++				#address-cells = <0>;
++				interrupt-map = <1 &test_intc0 9>,
++						<2 &test_intc1 10 11 12>,
++						<3 &test_intc2 13 14>,
++						<4 &test_intc2 15 16>;
++			};
++
++			interrupts0 {
++				interrupt-parent = <&test_intc0>;
++				interrupts = <1>, <2>, <3>, <4>;
++			};
++
++			interrupts1 {
++				interrupt-parent = <&test_intmap0>;
++				interrupts = <1>, <2>, <3>, <4>;
++			};
++		};
++	};
++};
+diff --git a/arch/arm/boot/dts/testcases/tests.dtsi b/arch/arm/boot/dts/testcases/tests.dtsi
+index a7c5067..3f123ec 100644
+--- a/arch/arm/boot/dts/testcases/tests.dtsi
++++ b/arch/arm/boot/dts/testcases/tests.dtsi
+@@ -1 +1,2 @@
+ /include/ "tests-phandle.dtsi"
++/include/ "tests-interrupts.dtsi"
+diff --git a/arch/arm/configs/mvebu_defconfig b/arch/arm/configs/mvebu_defconfig
+index 731814e..d38e339 100644
+--- a/arch/arm/configs/mvebu_defconfig
++++ b/arch/arm/configs/mvebu_defconfig
+@@ -53,6 +53,8 @@ CONFIG_MTD_CFI_INTELEXT=y
+ CONFIG_MTD_CFI_AMDSTD=y
+ CONFIG_MTD_CFI_STAA=y
+ CONFIG_MTD_PHYSMAP_OF=y
++CONFIG_MTD_NAND=y
++CONFIG_MTD_NAND_PXA3xx=y
+ CONFIG_SERIAL_8250_DW=y
+ CONFIG_GPIOLIB=y
+ CONFIG_GPIO_SYSFS=y
+diff --git a/arch/arm/mach-integrator/pci_v3.c b/arch/arm/mach-integrator/pci_v3.c
+index e7fcea7..a366159 100644
+--- a/arch/arm/mach-integrator/pci_v3.c
++++ b/arch/arm/mach-integrator/pci_v3.c
+@@ -610,3 +610,281 @@ void __init pci_v3_postinit(void)
+ 
+ 	register_isa_ports(PHYS_PCI_MEM_BASE, PHYS_PCI_IO_BASE, 0);
+ }
++
++/*
++ * A small note about bridges and interrupts.  The DECchip 21050 (and
++ * later) adheres to the PCI-PCI bridge specification.  This says that
++ * the interrupts on the other side of a bridge are swizzled in the
++ * following manner:
++ *
++ * Dev    Interrupt   Interrupt
++ *        Pin on      Pin on
++ *        Device      Connector
++ *
++ *   4    A           A
++ *        B           B
++ *        C           C
++ *        D           D
++ *
++ *   5    A           B
++ *        B           C
++ *        C           D
++ *        D           A
++ *
++ *   6    A           C
++ *        B           D
++ *        C           A
++ *        D           B
++ *
++ *   7    A           D
++ *        B           A
++ *        C           B
++ *        D           C
++ *
++ * Where A = pin 1, B = pin 2 and so on and pin=0 = default = A.
++ * Thus, each swizzle is ((pin-1) + (device#-4)) % 4
++ */
++
++/*
++ * This routine handles multiple bridges.
++ */
++static u8 __init pci_v3_swizzle(struct pci_dev *dev, u8 *pinp)
++{
++	if (*pinp == 0)
++		*pinp = 1;
++
++	return pci_common_swizzle(dev, pinp);
++}
++
++static int irq_tab[4] __initdata = {
++	IRQ_AP_PCIINT0,	IRQ_AP_PCIINT1,	IRQ_AP_PCIINT2,	IRQ_AP_PCIINT3
++};
++
++/*
++ * map the specified device/slot/pin to an IRQ.  This works out such
++ * that slot 9 pin 1 is INT0, pin 2 is INT1, and slot 10 pin 1 is INT1.
++ */
++static int __init pci_v3_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
++{
++	int intnr = ((slot - 9) + (pin - 1)) & 3;
++
++	return irq_tab[intnr];
++}
++
++static struct hw_pci pci_v3 __initdata = {
++	.swizzle		= pci_v3_swizzle,
++	.setup			= pci_v3_setup,
++	.nr_controllers		= 1,
++	.ops			= &pci_v3_ops,
++	.preinit		= pci_v3_preinit,
++	.postinit		= pci_v3_postinit,
++};
++
++#ifdef CONFIG_OF
++
++static int __init pci_v3_map_irq_dt(const struct pci_dev *dev, u8 slot, u8 pin)
++{
++	struct of_phandle_args oirq;
++	int ret;
++
++	ret = of_irq_parse_pci(dev, &oirq);
++	if (ret) {
++		dev_err(&dev->dev, "of_irq_parse_pci() %d\n", ret);
++		/* Proper return code 0 == NO_IRQ */
++		return 0;
++	}
++
++	return irq_create_of_mapping(&oirq);
++}
++
++static int __init pci_v3_dtprobe(struct platform_device *pdev,
++				struct device_node *np)
++{
++	struct of_pci_range_parser parser;
++	struct of_pci_range range;
++	struct resource *res;
++	int irq, ret;
++
++	if (of_pci_range_parser_init(&parser, np))
++		return -EINVAL;
++
++	/* Get base for bridge registers */
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!res) {
++		dev_err(&pdev->dev, "unable to obtain PCIv3 base\n");
++		return -ENODEV;
++	}
++	pci_v3_base = devm_ioremap(&pdev->dev, res->start,
++				   resource_size(res));
++	if (!pci_v3_base) {
++		dev_err(&pdev->dev, "unable to remap PCIv3 base\n");
++		return -ENODEV;
++	}
++
++	/* Get and request error IRQ resource */
++	irq = platform_get_irq(pdev, 0);
++	if (irq <= 0) {
++		dev_err(&pdev->dev, "unable to obtain PCIv3 error IRQ\n");
++		return -ENODEV;
++	}
++	ret = devm_request_irq(&pdev->dev, irq, v3_irq, 0,
++			"PCIv3 error", NULL);
++	if (ret < 0) {
++		dev_err(&pdev->dev, "unable to request PCIv3 error IRQ %d (%d)\n", irq, ret);
++		return ret;
++	}
++
++	for_each_of_pci_range(&parser, &range) {
++		if (!range.flags) {
++			of_pci_range_to_resource(&range, np, &conf_mem);
++			conf_mem.name = "PCIv3 config";
++		}
++		if (range.flags & IORESOURCE_IO) {
++			of_pci_range_to_resource(&range, np, &io_mem);
++			io_mem.name = "PCIv3 I/O";
++		}
++		if ((range.flags & IORESOURCE_MEM) &&
++			!(range.flags & IORESOURCE_PREFETCH)) {
++			non_mem_pci = range.pci_addr;
++			non_mem_pci_sz = range.size;
++			of_pci_range_to_resource(&range, np, &non_mem);
++			non_mem.name = "PCIv3 non-prefetched mem";
++		}
++		if ((range.flags & IORESOURCE_MEM) &&
++			(range.flags & IORESOURCE_PREFETCH)) {
++			pre_mem_pci = range.pci_addr;
++			pre_mem_pci_sz = range.size;
++			of_pci_range_to_resource(&range, np, &pre_mem);
++			pre_mem.name = "PCIv3 prefetched mem";
++		}
++	}
++
++	if (!conf_mem.start || !io_mem.start ||
++	    !non_mem.start || !pre_mem.start) {
++		dev_err(&pdev->dev, "missing ranges in device node\n");
++		return -EINVAL;
++	}
++
++	pci_v3.map_irq = pci_v3_map_irq_dt;
++	pci_common_init_dev(&pdev->dev, &pci_v3);
++
++	return 0;
++}
++
++#else
++
++static inline int pci_v3_dtprobe(struct platform_device *pdev,
++				  struct device_node *np)
++{
++	return -EINVAL;
++}
++
++#endif
++
++static int __init pci_v3_probe(struct platform_device *pdev)
++{
++	struct device_node *np = pdev->dev.of_node;
++	int ret;
++
++	/* Remap the Integrator system controller */
++	ap_syscon_base = ioremap(INTEGRATOR_SC_BASE, 0x100);
++	if (!ap_syscon_base) {
++		dev_err(&pdev->dev, "unable to remap the AP syscon for PCIv3\n");
++		return -ENODEV;
++	}
++
++	/* Device tree probe path */
++	if (np)
++		return pci_v3_dtprobe(pdev, np);
++
++	pci_v3_base = devm_ioremap(&pdev->dev, PHYS_PCI_V3_BASE, SZ_64K);
++	if (!pci_v3_base) {
++		dev_err(&pdev->dev, "unable to remap PCIv3 base\n");
++		return -ENODEV;
++	}
++
++	ret = devm_request_irq(&pdev->dev, IRQ_AP_V3INT, v3_irq, 0, "V3", NULL);
++	if (ret) {
++		dev_err(&pdev->dev, "unable to grab PCI error interrupt: %d\n",
++			ret);
++		return -ENODEV;
++	}
++
++	conf_mem.name = "PCIv3 config";
++	conf_mem.start = PHYS_PCI_CONFIG_BASE;
++	conf_mem.end = PHYS_PCI_CONFIG_BASE + SZ_16M - 1;
++	conf_mem.flags = IORESOURCE_MEM;
++
++	io_mem.name = "PCIv3 I/O";
++	io_mem.start = PHYS_PCI_IO_BASE;
++	io_mem.end = PHYS_PCI_IO_BASE + SZ_16M - 1;
++	io_mem.flags = IORESOURCE_MEM;
++
++	non_mem_pci = 0x00000000;
++	non_mem_pci_sz = SZ_256M;
++	non_mem.name = "PCIv3 non-prefetched mem";
++	non_mem.start = PHYS_PCI_MEM_BASE;
++	non_mem.end = PHYS_PCI_MEM_BASE + SZ_256M - 1;
++	non_mem.flags = IORESOURCE_MEM;
++
++	pre_mem_pci = 0x10000000;
++	pre_mem_pci_sz = SZ_256M;
++	pre_mem.name = "PCIv3 prefetched mem";
++	pre_mem.start = PHYS_PCI_PRE_BASE + SZ_256M;
++	pre_mem.end = PHYS_PCI_PRE_BASE + SZ_256M - 1;
++	pre_mem.flags = IORESOURCE_MEM | IORESOURCE_PREFETCH;
++
++	pci_v3.map_irq = pci_v3_map_irq;
++
++	pci_common_init_dev(&pdev->dev, &pci_v3);
++
++	return 0;
++}
++
++static const struct of_device_id pci_ids[] = {
++	{ .compatible = "v3,v360epc-pci", },
++	{},
++};
++
++static struct platform_driver pci_v3_driver = {
++	.driver = {
++		.name = "pci-v3",
++		.of_match_table = pci_ids,
++	},
++};
++
++static int __init pci_v3_init(void)
++{
++	return platform_driver_probe(&pci_v3_driver, pci_v3_probe);
++}
++
++subsys_initcall(pci_v3_init);
++
++/*
++ * Static mappings for the PCIv3 bridge
++ *
++ * e8000000	40000000	PCI memory		PHYS_PCI_MEM_BASE	(max 512M)
++ * ec000000	61000000	PCI config space	PHYS_PCI_CONFIG_BASE	(max 16M)
++ * fee00000	60000000	PCI IO			PHYS_PCI_IO_BASE	(max 16M)
++ */
++static struct map_desc pci_v3_io_desc[] __initdata __maybe_unused = {
++	{
++		.virtual	= (unsigned long)PCI_MEMORY_VADDR,
++		.pfn		= __phys_to_pfn(PHYS_PCI_MEM_BASE),
++		.length		= SZ_16M,
++		.type		= MT_DEVICE
++	}, {
++		.virtual	= (unsigned long)PCI_CONFIG_VADDR,
++		.pfn		= __phys_to_pfn(PHYS_PCI_CONFIG_BASE),
++		.length		= SZ_16M,
++		.type		= MT_DEVICE
++	}
++};
++
++int __init pci_v3_early_init(void)
++{
++	iotable_init(pci_v3_io_desc, ARRAY_SIZE(pci_v3_io_desc));
++	vga_base = (unsigned long)PCI_MEMORY_VADDR;
++	pci_map_io_early(__phys_to_pfn(PHYS_PCI_IO_BASE));
++	return 0;
++}
+diff --git a/arch/arm/mach-mvebu/armada-370-xp.h b/arch/arm/mach-mvebu/armada-370-xp.h
+index c612b2c..4ed534d 100644
+--- a/arch/arm/mach-mvebu/armada-370-xp.h
++++ b/arch/arm/mach-mvebu/armada-370-xp.h
+@@ -18,6 +18,8 @@
+ #ifdef CONFIG_SMP
+ #include <linux/cpumask.h>
+ 
++#define ARMADA_XP_MAX_CPUS 4
++
+ void armada_mpic_send_doorbell(const struct cpumask *mask, unsigned int irq);
+ void armada_xp_mpic_smp_cpu_init(void);
+ #endif
+diff --git a/arch/arm/mach-mvebu/common.h b/arch/arm/mach-mvebu/common.h
+index 98defd5..77fc45a 100644
+--- a/arch/arm/mach-mvebu/common.h
++++ b/arch/arm/mach-mvebu/common.h
+@@ -15,8 +15,6 @@
+ #ifndef __ARCH_MVEBU_COMMON_H
+ #define __ARCH_MVEBU_COMMON_H
+ 
+-#define ARMADA_XP_MAX_CPUS 4
+-
+ void mvebu_restart(char mode, const char *cmd);
+ 
+ void armada_370_xp_init_irq(void);
+@@ -24,7 +22,6 @@ void armada_370_xp_handle_irq(struct pt_regs *regs);
+ 
+ void armada_xp_cpu_die(unsigned int cpu);
+ int armada_370_xp_coherency_init(void);
+-int armada_370_xp_pmsu_init(void);
+ void armada_xp_secondary_startup(void);
+ extern struct smp_operations armada_xp_smp_ops;
+ #endif
+diff --git a/arch/arm/mach-mvebu/pmsu.c b/arch/arm/mach-mvebu/pmsu.c
+index 3cc4bef..523d1bf 100644
+--- a/arch/arm/mach-mvebu/pmsu.c
++++ b/arch/arm/mach-mvebu/pmsu.c
+@@ -58,7 +58,7 @@ int armada_xp_boot_cpu(unsigned int cpu_id, void *boot_addr)
+ }
+ #endif
+ 
+-int __init armada_370_xp_pmsu_init(void)
++static int __init armada_370_xp_pmsu_init(void)
+ {
+ 	struct device_node *np;
+ 
+diff --git a/arch/microblaze/pci/pci-common.c b/arch/microblaze/pci/pci-common.c
+index bdb8ea1..91f5669 100644
+--- a/arch/microblaze/pci/pci-common.c
++++ b/arch/microblaze/pci/pci-common.c
+@@ -199,7 +199,7 @@ void pcibios_set_master(struct pci_dev *dev)
+  */
+ int pci_read_irq_line(struct pci_dev *pci_dev)
+ {
+-	struct of_irq oirq;
++	struct of_phandle_args oirq;
+ 	unsigned int virq;
+ 
+ 	/* The current device-tree that iSeries generates from the HV
+@@ -217,7 +217,7 @@ int pci_read_irq_line(struct pci_dev *pci_dev)
+ 	memset(&oirq, 0xff, sizeof(oirq));
+ #endif
+ 	/* Try to get a mapping from the device-tree */
+-	if (of_irq_map_pci(pci_dev, &oirq)) {
++	if (of_irq_parse_pci(pci_dev, &oirq)) {
+ 		u8 line, pin;
+ 
+ 		/* If that fails, lets fallback to what is in the config
+@@ -243,11 +243,10 @@ int pci_read_irq_line(struct pci_dev *pci_dev)
+ 			irq_set_irq_type(virq, IRQ_TYPE_LEVEL_LOW);
+ 	} else {
+ 		pr_debug(" Got one, spec %d cells (0x%08x 0x%08x...) on %s\n",
+-			 oirq.size, oirq.specifier[0], oirq.specifier[1],
+-			 of_node_full_name(oirq.controller));
++			 oirq.args_count, oirq.args[0], oirq.args[1],
++			 of_node_full_name(oirq.np));
+ 
+-		virq = irq_create_of_mapping(oirq.controller, oirq.specifier,
+-					     oirq.size);
++		virq = irq_create_of_mapping(&oirq);
+ 	}
+ 	if (!virq) {
+ 		pr_debug(" Failed to map !\n");
+diff --git a/arch/mips/pci/fixup-lantiq.c b/arch/mips/pci/fixup-lantiq.c
+index 6c829df..aef60e7 100644
+--- a/arch/mips/pci/fixup-lantiq.c
++++ b/arch/mips/pci/fixup-lantiq.c
+@@ -25,16 +25,15 @@ int pcibios_plat_dev_init(struct pci_dev *dev)
+ 
+ int __init pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
+ {
+-	struct of_irq dev_irq;
++	struct of_phandle_args dev_irq;
+ 	int irq;
+ 
+-	if (of_irq_map_pci(dev, &dev_irq)) {
++	if (of_irq_parse_pci(dev, &dev_irq)) {
+ 		dev_err(&dev->dev, "trying to map irq for unknown slot:%d pin:%d\n",
+ 			slot, pin);
+ 		return 0;
+ 	}
+-	irq = irq_create_of_mapping(dev_irq.controller, dev_irq.specifier,
+-					dev_irq.size);
++	irq = irq_create_of_mapping(&dev_irq);
+ 	dev_info(&dev->dev, "SLOT:%d PIN:%d IRQ:%d\n", slot, pin, irq);
+ 	return irq;
+ }
+diff --git a/arch/powerpc/kernel/pci-common.c b/arch/powerpc/kernel/pci-common.c
+index f46914a..2a404fe 100644
+--- a/arch/powerpc/kernel/pci-common.c
++++ b/arch/powerpc/kernel/pci-common.c
+@@ -228,7 +228,7 @@ int pcibios_add_platform_entries(struct pci_dev *pdev)
+  */
+ static int pci_read_irq_line(struct pci_dev *pci_dev)
+ {
+-	struct of_irq oirq;
++	struct of_phandle_args oirq;
+ 	unsigned int virq;
+ 
+ 	pr_debug("PCI: Try to map irq for %s...\n", pci_name(pci_dev));
+@@ -237,7 +237,7 @@ static int pci_read_irq_line(struct pci_dev *pci_dev)
+ 	memset(&oirq, 0xff, sizeof(oirq));
+ #endif
+ 	/* Try to get a mapping from the device-tree */
+-	if (of_irq_map_pci(pci_dev, &oirq)) {
++	if (of_irq_parse_pci(pci_dev, &oirq)) {
+ 		u8 line, pin;
+ 
+ 		/* If that fails, lets fallback to what is in the config
+@@ -263,11 +263,10 @@ static int pci_read_irq_line(struct pci_dev *pci_dev)
+ 			irq_set_irq_type(virq, IRQ_TYPE_LEVEL_LOW);
+ 	} else {
+ 		pr_debug(" Got one, spec %d cells (0x%08x 0x%08x...) on %s\n",
+-			 oirq.size, oirq.specifier[0], oirq.specifier[1],
+-			 of_node_full_name(oirq.controller));
++			 oirq.args_count, oirq.args[0], oirq.args[1],
++			 of_node_full_name(oirq.np));
+ 
+-		virq = irq_create_of_mapping(oirq.controller, oirq.specifier,
+-					     oirq.size);
++		virq = irq_create_of_mapping(&oirq);
+ 	}
+ 	if(virq == NO_IRQ) {
+ 		pr_debug(" Failed to map !\n");
+diff --git a/arch/powerpc/platforms/cell/celleb_scc_pciex.c b/arch/powerpc/platforms/cell/celleb_scc_pciex.c
+index 14be2bd..b3ea96d 100644
+--- a/arch/powerpc/platforms/cell/celleb_scc_pciex.c
++++ b/arch/powerpc/platforms/cell/celleb_scc_pciex.c
+@@ -486,7 +486,7 @@ static __init int celleb_setup_pciex(struct device_node *node,
+ 				     struct pci_controller *phb)
+ {
+ 	struct resource	r;
+-	struct of_irq oirq;
++	struct of_phandle_args oirq;
+ 	int virq;
+ 
+ 	/* SMMIO registers; used inside this file */
+@@ -507,12 +507,11 @@ static __init int celleb_setup_pciex(struct device_node *node,
+ 	phb->ops = &scc_pciex_pci_ops;
+ 
+ 	/* internal interrupt handler */
+-	if (of_irq_map_one(node, 1, &oirq)) {
++	if (of_irq_parse_one(node, 1, &oirq)) {
+ 		pr_err("PCIEXC:Failed to map irq\n");
+ 		goto error;
+ 	}
+-	virq = irq_create_of_mapping(oirq.controller, oirq.specifier,
+-				     oirq.size);
++	virq = irq_create_of_mapping(&oirq);
+ 	if (request_irq(virq, pciex_handle_internal_irq,
+ 			0, "pciex", (void *)phb)) {
+ 		pr_err("PCIEXC:Failed to request irq\n");
+diff --git a/arch/powerpc/platforms/cell/celleb_scc_sio.c b/arch/powerpc/platforms/cell/celleb_scc_sio.c
+index 9c339ec..c8eb571 100644
+--- a/arch/powerpc/platforms/cell/celleb_scc_sio.c
++++ b/arch/powerpc/platforms/cell/celleb_scc_sio.c
+@@ -45,7 +45,7 @@ static int __init txx9_serial_init(void)
+ 	struct device_node *node;
+ 	int i;
+ 	struct uart_port req;
+-	struct of_irq irq;
++	struct of_phandle_args irq;
+ 	struct resource res;
+ 
+ 	for_each_compatible_node(node, "serial", "toshiba,sio-scc") {
+@@ -53,7 +53,7 @@ static int __init txx9_serial_init(void)
+ 			if (!(txx9_serial_bitmap & (1<<i)))
+ 				continue;
+ 
+-			if (of_irq_map_one(node, i, &irq))
++			if (of_irq_parse_one(node, i, &irq))
+ 				continue;
+ 			if (of_address_to_resource(node,
+ 				txx9_scc_tab[i].index, &res))
+@@ -66,8 +66,7 @@ static int __init txx9_serial_init(void)
+ #ifdef CONFIG_SERIAL_TXX9_CONSOLE
+ 			req.membase = ioremap(req.mapbase, 0x24);
+ #endif
+-			req.irq = irq_create_of_mapping(irq.controller,
+-				irq.specifier, irq.size);
++			req.irq = irq_create_of_mapping(&irq);
+ 			req.flags |= UPF_IOREMAP | UPF_BUGGY_UART
+ 				/*HAVE_CTS_LINE*/;
+ 			req.uartclk = 83300000;
+diff --git a/arch/powerpc/platforms/cell/spider-pic.c b/arch/powerpc/platforms/cell/spider-pic.c
+index 8e29944..d206804 100644
+--- a/arch/powerpc/platforms/cell/spider-pic.c
++++ b/arch/powerpc/platforms/cell/spider-pic.c
+@@ -235,12 +235,9 @@ static unsigned int __init spider_find_cascade_and_node(struct spider_pic *pic)
+ 	/* First, we check whether we have a real "interrupts" in the device
+ 	 * tree in case the device-tree is ever fixed
+ 	 */
+-	struct of_irq oirq;
+-	if (of_irq_map_one(pic->host->of_node, 0, &oirq) == 0) {
+-		virq = irq_create_of_mapping(oirq.controller, oirq.specifier,
+-					     oirq.size);
+-		return virq;
+-	}
++	struct of_phandle_args oirq;
++	if (of_irq_parse_one(pic->host->of_node, 0, &oirq) == 0)
++		return irq_create_of_mapping(&oirq);
+ 
+ 	/* Now do the horrible hacks */
+ 	tmp = of_get_property(pic->host->of_node, "#interrupt-cells", NULL);
+diff --git a/arch/powerpc/platforms/cell/spu_manage.c b/arch/powerpc/platforms/cell/spu_manage.c
+index 2bb6977..c3327f3 100644
+--- a/arch/powerpc/platforms/cell/spu_manage.c
++++ b/arch/powerpc/platforms/cell/spu_manage.c
+@@ -177,21 +177,20 @@ out:
+ 
+ static int __init spu_map_interrupts(struct spu *spu, struct device_node *np)
+ {
+-	struct of_irq oirq;
++	struct of_phandle_args oirq;
+ 	int ret;
+ 	int i;
+ 
+ 	for (i=0; i < 3; i++) {
+-		ret = of_irq_map_one(np, i, &oirq);
++		ret = of_irq_parse_one(np, i, &oirq);
+ 		if (ret) {
+ 			pr_debug("spu_new: failed to get irq %d\n", i);
+ 			goto err;
+ 		}
+ 		ret = -EINVAL;
+-		pr_debug("  irq %d no 0x%x on %s\n", i, oirq.specifier[0],
+-			 oirq.controller->full_name);
+-		spu->irqs[i] = irq_create_of_mapping(oirq.controller,
+-					oirq.specifier, oirq.size);
++		pr_debug("  irq %d no 0x%x on %s\n", i, oirq.args[0],
++			 oirq.np->full_name);
++		spu->irqs[i] = irq_create_of_mapping(&oirq);
+ 		if (spu->irqs[i] == NO_IRQ) {
+ 			pr_debug("spu_new: failed to map it !\n");
+ 			goto err;
+@@ -200,7 +199,7 @@ static int __init spu_map_interrupts(struct spu *spu, struct device_node *np)
+ 	return 0;
+ 
+ err:
+-	pr_debug("failed to map irq %x for spu %s\n", *oirq.specifier,
++	pr_debug("failed to map irq %x for spu %s\n", *oirq.args,
+ 		spu->name);
+ 	for (; i >= 0; i--) {
+ 		if (spu->irqs[i] != NO_IRQ)
+diff --git a/arch/powerpc/platforms/fsl_uli1575.c b/arch/powerpc/platforms/fsl_uli1575.c
+index 92ac9b5..b97f6f3 100644
+--- a/arch/powerpc/platforms/fsl_uli1575.c
++++ b/arch/powerpc/platforms/fsl_uli1575.c
+@@ -321,8 +321,7 @@ static void hpcd_final_uli5288(struct pci_dev *dev)
+ {
+ 	struct pci_controller *hose = pci_bus_to_host(dev->bus);
+ 	struct device_node *hosenode = hose ? hose->dn : NULL;
+-	struct of_irq oirq;
+-	int virq, pin = 2;
++	struct of_phandle_args oirq;
+ 	u32 laddr[3];
+ 
+ 	if (!machine_is(mpc86xx_hpcd))
+@@ -331,12 +330,13 @@ static void hpcd_final_uli5288(struct pci_dev *dev)
+ 	if (!hosenode)
+ 		return;
+ 
++	oirq.np = hosenode;
++	oirq.args[0] = 2;
++	oirq.args_count = 1;
+ 	laddr[0] = (hose->first_busno << 16) | (PCI_DEVFN(31, 0) << 8);
+ 	laddr[1] = laddr[2] = 0;
+-	of_irq_map_raw(hosenode, &pin, 1, laddr, &oirq);
+-	virq = irq_create_of_mapping(oirq.controller, oirq.specifier,
+-				     oirq.size);
+-	dev->irq = virq;
++	of_irq_parse_raw(laddr, &oirq);
++	dev->irq = irq_create_of_mapping(&oirq);
+ }
+ 
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_AL, 0x1575, hpcd_quirk_uli1575);
+diff --git a/arch/powerpc/platforms/powermac/pic.c b/arch/powerpc/platforms/powermac/pic.c
+index 31036b5..4c24bf6 100644
+--- a/arch/powerpc/platforms/powermac/pic.c
++++ b/arch/powerpc/platforms/powermac/pic.c
+@@ -393,8 +393,8 @@ static void __init pmac_pic_probe_oldstyle(void)
+ #endif
+ }
+ 
+-int of_irq_map_oldworld(struct device_node *device, int index,
+-			struct of_irq *out_irq)
++int of_irq_parse_oldworld(struct device_node *device, int index,
++			struct of_phandle_args *out_irq)
+ {
+ 	const u32 *ints = NULL;
+ 	int intlen;
+@@ -422,9 +422,9 @@ int of_irq_map_oldworld(struct device_node *device, int index,
+ 	if (index >= intlen)
+ 		return -EINVAL;
+ 
+-	out_irq->controller = NULL;
+-	out_irq->specifier[0] = ints[index];
+-	out_irq->size = 1;
++	out_irq->np = NULL;
++	out_irq->args[0] = ints[index];
++	out_irq->args_count = 1;
+ 
+ 	return 0;
+ }
+diff --git a/arch/powerpc/platforms/pseries/event_sources.c b/arch/powerpc/platforms/pseries/event_sources.c
+index 2605c31..18380e8 100644
+--- a/arch/powerpc/platforms/pseries/event_sources.c
++++ b/arch/powerpc/platforms/pseries/event_sources.c
+@@ -25,7 +25,7 @@ void request_event_sources_irqs(struct device_node *np,
+ 				const char *name)
+ {
+ 	int i, index, count = 0;
+-	struct of_irq oirq;
++	struct of_phandle_args oirq;
+ 	const u32 *opicprop;
+ 	unsigned int opicplen;
+ 	unsigned int virqs[16];
+@@ -55,13 +55,11 @@ void request_event_sources_irqs(struct device_node *np,
+ 	/* Else use normal interrupt tree parsing */
+ 	else {
+ 		/* First try to do a proper OF tree parsing */
+-		for (index = 0; of_irq_map_one(np, index, &oirq) == 0;
++		for (index = 0; of_irq_parse_one(np, index, &oirq) == 0;
+ 		     index++) {
+ 			if (count > 15)
+ 				break;
+-			virqs[count] = irq_create_of_mapping(oirq.controller,
+-							    oirq.specifier,
+-							    oirq.size);
++			virqs[count] = irq_create_of_mapping(&oirq);
+ 			if (virqs[count] == NO_IRQ) {
+ 				pr_err("event-sources: Unable to allocate "
+ 				       "interrupt number for %s\n",
+diff --git a/arch/powerpc/sysdev/mpic_msi.c b/arch/powerpc/sysdev/mpic_msi.c
+index bbf342c..7dc39f3 100644
+--- a/arch/powerpc/sysdev/mpic_msi.c
++++ b/arch/powerpc/sysdev/mpic_msi.c
+@@ -35,7 +35,7 @@ static int mpic_msi_reserve_u3_hwirqs(struct mpic *mpic)
+ 	const struct irq_domain_ops *ops = mpic->irqhost->ops;
+ 	struct device_node *np;
+ 	int flags, index, i;
+-	struct of_irq oirq;
++	struct of_phandle_args oirq;
+ 
+ 	pr_debug("mpic: found U3, guessing msi allocator setup\n");
+ 
+@@ -63,9 +63,9 @@ static int mpic_msi_reserve_u3_hwirqs(struct mpic *mpic)
+ 		pr_debug("mpic: mapping hwirqs for %s\n", np->full_name);
+ 
+ 		index = 0;
+-		while (of_irq_map_one(np, index++, &oirq) == 0) {
+-			ops->xlate(mpic->irqhost, NULL, oirq.specifier,
+-						oirq.size, &hwirq, &flags);
++		while (of_irq_parse_one(np, index++, &oirq) == 0) {
++			ops->xlate(mpic->irqhost, NULL, oirq.args,
++						oirq.args_count, &hwirq, &flags);
+ 			msi_bitmap_reserve_hwirq(&mpic->msi_bitmap, hwirq);
+ 		}
+ 	}
+diff --git a/arch/x86/kernel/devicetree.c b/arch/x86/kernel/devicetree.c
+index b158152..0171604 100644
+--- a/arch/x86/kernel/devicetree.c
++++ b/arch/x86/kernel/devicetree.c
+@@ -106,7 +106,7 @@ struct device_node *pcibios_get_phb_of_node(struct pci_bus *bus)
+ 
+ static int x86_of_pci_irq_enable(struct pci_dev *dev)
+ {
+-	struct of_irq oirq;
++	struct of_phandle_args oirq;
+ 	u32 virq;
+ 	int ret;
+ 	u8 pin;
+@@ -117,12 +117,11 @@ static int x86_of_pci_irq_enable(struct pci_dev *dev)
+ 	if (!pin)
+ 		return 0;
+ 
+-	ret = of_irq_map_pci(dev, &oirq);
++	ret = of_irq_parse_pci(dev, &oirq);
+ 	if (ret)
+ 		return ret;
+ 
+-	virq = irq_create_of_mapping(oirq.controller, oirq.specifier,
+-			oirq.size);
++	virq = irq_create_of_mapping(&oirq);
+ 	if (virq == 0)
+ 		return -EINVAL;
+ 	dev->irq = virq;
+diff --git a/drivers/ata/sata_mv.c b/drivers/ata/sata_mv.c
+index 35c6b6d..d3c8d94 100644
+--- a/drivers/ata/sata_mv.c
++++ b/drivers/ata/sata_mv.c
+@@ -304,6 +304,7 @@ enum {
+ 	MV5_LTMODE		= 0x30,
+ 	MV5_PHY_CTL		= 0x0C,
+ 	SATA_IFCFG		= 0x050,
++	LP_PHY_CTL		= 0x058,
+ 
+ 	MV_M2_PREAMP_MASK	= 0x7e0,
+ 
+@@ -1353,6 +1354,7 @@ static int mv_scr_write(struct ata_link *link, unsigned int sc_reg_in, u32 val)
+ 
+ 	if (ofs != 0xffffffffU) {
+ 		void __iomem *addr = mv_ap_base(link->ap) + ofs;
++		void __iomem *lp_phy_addr = mv_ap_base(link->ap) + LP_PHY_CTL;
+ 		if (sc_reg_in == SCR_CONTROL) {
+ 			/*
+ 			 * Workaround for 88SX60x1 FEr SATA#26:
+@@ -1369,6 +1371,14 @@ static int mv_scr_write(struct ata_link *link, unsigned int sc_reg_in, u32 val)
+ 			 */
+ 			if ((val & 0xf) == 1 || (readl(addr) & 0xf) == 1)
+ 				val |= 0xf000;
++
++			/*
++			 * Setting PHY speed according to SControl speed
++			 */
++			if ((val & 0xf0) == 0x10)
++				writelfl(0x7, lp_phy_addr);
++			else
++				writelfl(0x227, lp_phy_addr);
+ 		}
+ 		writelfl(val, addr);
+ 		return 0;
+diff --git a/drivers/clocksource/time-armada-370-xp.c b/drivers/clocksource/time-armada-370-xp.c
+index 2f1d96a..2171171 100644
+--- a/drivers/clocksource/time-armada-370-xp.c
++++ b/drivers/clocksource/time-armada-370-xp.c
+@@ -13,6 +13,19 @@
+  *
+  * Timer 0 is used as free-running clocksource, while timer 1 is
+  * used as clock_event_device.
++ *
++ * ---
++ * Clocksource driver for Armada 370 and Armada XP SoC.
++ * This driver implements one compatible string for each SoC, given
++ * each has its own characteristics:
++ *
++ *   * Armada 370 has no 25 MHz fixed timer.
++ *
++ *   * Armada XP cannot work properly without such 25 MHz fixed timer as
++ *     doing otherwise leads to using a clocksource whose frequency varies
++ *     when doing cpufreq frequency changes.
++ *
++ * See Documentation/devicetree/bindings/timer/marvell,armada-370-xp-timer.txt
+  */
+ 
+ #include <linux/init.h>
+@@ -35,13 +48,13 @@
+  * Timer block registers.
+  */
+ #define TIMER_CTRL_OFF		0x0000
+-#define  TIMER0_EN		 0x0001
+-#define  TIMER0_RELOAD_EN	 0x0002
+-#define  TIMER0_25MHZ            0x0800
++#define  TIMER0_EN		 BIT(0)
++#define  TIMER0_RELOAD_EN	 BIT(1)
++#define  TIMER0_25MHZ            BIT(11)
+ #define  TIMER0_DIV(div)         ((div) << 19)
+-#define  TIMER1_EN		 0x0004
+-#define  TIMER1_RELOAD_EN	 0x0008
+-#define  TIMER1_25MHZ            0x1000
++#define  TIMER1_EN		 BIT(2)
++#define  TIMER1_RELOAD_EN	 BIT(3)
++#define  TIMER1_25MHZ            BIT(12)
+ #define  TIMER1_DIV(div)         ((div) << 22)
+ #define TIMER_EVENTS_STATUS	0x0004
+ #define  TIMER0_CLR_MASK         (~0x1)
+@@ -71,6 +84,18 @@ static u32 ticks_per_jiffy;
+ 
+ static struct clock_event_device __percpu **percpu_armada_370_xp_evt;
+ 
++static void timer_ctrl_clrset(u32 clr, u32 set)
++{
++	writel((readl(timer_base + TIMER_CTRL_OFF) & ~clr) | set,
++		timer_base + TIMER_CTRL_OFF);
++}
++
++static void local_timer_ctrl_clrset(u32 clr, u32 set)
++{
++	writel((readl(local_base + TIMER_CTRL_OFF) & ~clr) | set,
++		local_base + TIMER_CTRL_OFF);
++}
++
+ static u32 notrace armada_370_xp_read_sched_clock(void)
+ {
+ 	return ~readl(timer_base + TIMER0_VAL_OFF);
+@@ -83,7 +108,6 @@ static int
+ armada_370_xp_clkevt_next_event(unsigned long delta,
+ 				struct clock_event_device *dev)
+ {
+-	u32 u;
+ 	/*
+ 	 * Clear clockevent timer interrupt.
+ 	 */
+@@ -97,11 +121,8 @@ armada_370_xp_clkevt_next_event(unsigned long delta,
+ 	/*
+ 	 * Enable the timer.
+ 	 */
+-	u = readl(local_base + TIMER_CTRL_OFF);
+-	u = ((u & ~TIMER0_RELOAD_EN) | TIMER0_EN |
+-	     TIMER0_DIV(TIMER_DIVIDER_SHIFT));
+-	writel(u, local_base + TIMER_CTRL_OFF);
+-
++	local_timer_ctrl_clrset(TIMER0_RELOAD_EN,
++				TIMER0_EN | TIMER0_DIV(TIMER_DIVIDER_SHIFT));
+ 	return 0;
+ }
+ 
+@@ -109,8 +130,6 @@ static void
+ armada_370_xp_clkevt_mode(enum clock_event_mode mode,
+ 			  struct clock_event_device *dev)
+ {
+-	u32 u;
+-
+ 	if (mode == CLOCK_EVT_MODE_PERIODIC) {
+ 
+ 		/*
+@@ -122,18 +141,14 @@ armada_370_xp_clkevt_mode(enum clock_event_mode mode,
+ 		/*
+ 		 * Enable timer.
+ 		 */
+-
+-		u = readl(local_base + TIMER_CTRL_OFF);
+-
+-		writel((u | TIMER0_EN | TIMER0_RELOAD_EN |
+-			TIMER0_DIV(TIMER_DIVIDER_SHIFT)),
+-			local_base + TIMER_CTRL_OFF);
++		local_timer_ctrl_clrset(0, TIMER0_RELOAD_EN |
++					   TIMER0_EN |
++					   TIMER0_DIV(TIMER_DIVIDER_SHIFT));
+ 	} else {
+ 		/*
+ 		 * Disable timer.
+ 		 */
+-		u = readl(local_base + TIMER_CTRL_OFF);
+-		writel(u & ~TIMER0_EN, local_base + TIMER_CTRL_OFF);
++		local_timer_ctrl_clrset(TIMER0_EN, 0);
+ 
+ 		/*
+ 		 * ACK pending timer interrupt.
+@@ -169,18 +184,18 @@ static irqreturn_t armada_370_xp_timer_interrupt(int irq, void *dev_id)
+  */
+ static int __cpuinit armada_370_xp_timer_setup(struct clock_event_device *evt)
+ {
+-	u32 u;
++	u32 clr = 0, set = 0;
+ 	int cpu = smp_processor_id();
+ 
+ 	/* Use existing clock_event for cpu 0 */
+ 	if (!smp_processor_id())
+ 		return 0;
+ 
+-	u = readl(local_base + TIMER_CTRL_OFF);
+ 	if (timer25Mhz)
+-		writel(u | TIMER0_25MHZ, local_base + TIMER_CTRL_OFF);
++		set = TIMER0_25MHZ;
+ 	else
+-		writel(u & ~TIMER0_25MHZ, local_base + TIMER_CTRL_OFF);
++		clr = TIMER0_25MHZ;
++	local_timer_ctrl_clrset(clr, set);
+ 
+ 	evt->name		= armada_370_xp_clkevt.name;
+ 	evt->irq		= armada_370_xp_clkevt.irq;
+@@ -210,40 +225,21 @@ static struct local_timer_ops armada_370_xp_local_timer_ops __cpuinitdata = {
+ 	.stop	=  armada_370_xp_timer_stop,
+ };
+ 
+-static void __init armada_370_xp_timer_init(struct device_node *np)
++static void __init armada_370_xp_timer_common_init(struct device_node *np)
+ {
+-	u32 u;
++	u32 clr = 0, set = 0;
+ 	int res;
+ 
+ 	timer_base = of_iomap(np, 0);
+ 	WARN_ON(!timer_base);
+ 	local_base = of_iomap(np, 1);
+ 
+-	if (of_find_property(np, "marvell,timer-25Mhz", NULL)) {
+-		/* The fixed 25MHz timer is available so let's use it */
+-		u = readl(local_base + TIMER_CTRL_OFF);
+-		writel(u | TIMER0_25MHZ,
+-		       local_base + TIMER_CTRL_OFF);
+-		u = readl(timer_base + TIMER_CTRL_OFF);
+-		writel(u | TIMER0_25MHZ,
+-		       timer_base + TIMER_CTRL_OFF);
+-		timer_clk = 25000000;
+-	} else {
+-		unsigned long rate = 0;
+-		struct clk *clk = of_clk_get(np, 0);
+-		WARN_ON(IS_ERR(clk));
+-		rate =  clk_get_rate(clk);
+-		u = readl(local_base + TIMER_CTRL_OFF);
+-		writel(u & ~(TIMER0_25MHZ),
+-		       local_base + TIMER_CTRL_OFF);
+-
+-		u = readl(timer_base + TIMER_CTRL_OFF);
+-		writel(u & ~(TIMER0_25MHZ),
+-		       timer_base + TIMER_CTRL_OFF);
+-
+-		timer_clk = rate / TIMER_DIVIDER;
+-		timer25Mhz = false;
+-	}
++	if (timer25Mhz)
++		set = TIMER0_25MHZ;
++	else
++		clr = TIMER0_25MHZ;
++	timer_ctrl_clrset(clr, set);
++	local_timer_ctrl_clrset(clr, set);
+ 
+ 	/*
+ 	 * We use timer 0 as clocksource, and private(local) timer 0
+@@ -254,21 +250,19 @@ static void __init armada_370_xp_timer_init(struct device_node *np)
+ 	ticks_per_jiffy = (timer_clk + HZ / 2) / HZ;
+ 
+ 	/*
+-	 * Set scale and timer for sched_clock.
+-	 */
+-	setup_sched_clock(armada_370_xp_read_sched_clock, 32, timer_clk);
+-
+-	/*
+ 	 * Setup free-running clocksource timer (interrupts
+ 	 * disabled).
+ 	 */
+ 	writel(0xffffffff, timer_base + TIMER0_VAL_OFF);
+ 	writel(0xffffffff, timer_base + TIMER0_RELOAD_OFF);
+ 
+-	u = readl(timer_base + TIMER_CTRL_OFF);
++	timer_ctrl_clrset(0, TIMER0_EN | TIMER0_RELOAD_EN |
++			     TIMER0_DIV(TIMER_DIVIDER_SHIFT));
+ 
+-	writel((u | TIMER0_EN | TIMER0_RELOAD_EN |
+-		TIMER0_DIV(TIMER_DIVIDER_SHIFT)), timer_base + TIMER_CTRL_OFF);
++	/*
++	 * Set scale and timer for sched_clock.
++	 */
++	setup_sched_clock(armada_370_xp_read_sched_clock, 32, timer_clk);
+ 
+ 	clocksource_mmio_init(timer_base + TIMER0_VAL_OFF,
+ 			      "armada_370_xp_clocksource",
+@@ -297,5 +291,29 @@ static void __init armada_370_xp_timer_init(struct device_node *np)
+ #endif
+ 	}
+ }
+-CLOCKSOURCE_OF_DECLARE(armada_370_xp, "marvell,armada-370-xp-timer",
+-		       armada_370_xp_timer_init);
++
++static void __init armada_xp_timer_init(struct device_node *np)
++{
++	struct clk *clk = of_clk_get_by_name(np, "fixed");
++
++	/* The 25Mhz fixed clock is mandatory, and must always be available */
++	BUG_ON(IS_ERR(clk));
++	timer_clk = clk_get_rate(clk);
++
++	armada_370_xp_timer_common_init(np);
++}
++CLOCKSOURCE_OF_DECLARE(armada_xp, "marvell,armada-xp-timer",
++		       armada_xp_timer_init);
++
++static void __init armada_370_timer_init(struct device_node *np)
++{
++	struct clk *clk = of_clk_get(np, 0);
++
++	BUG_ON(IS_ERR(clk));
++	timer_clk = clk_get_rate(clk) / TIMER_DIVIDER;
++	timer25Mhz = false;
++
++	armada_370_xp_timer_common_init(np);
++}
++CLOCKSOURCE_OF_DECLARE(armada_370, "marvell,armada-370-timer",
++		       armada_370_timer_init);
+diff --git a/drivers/mtd/nand/Kconfig b/drivers/mtd/nand/Kconfig
+index 50543f1..cea6f80 100644
+--- a/drivers/mtd/nand/Kconfig
++++ b/drivers/mtd/nand/Kconfig
+@@ -353,11 +353,11 @@ config MTD_NAND_ATMEL
+ 	  on Atmel AT91 and AVR32 processors.
+ 
+ config MTD_NAND_PXA3xx
+-	tristate "Support for NAND flash devices on PXA3xx"
+-	depends on PXA3xx || ARCH_MMP
++	tristate "NAND support on PXA3xx and Armada 370/XP"
++	depends on PXA3xx || ARCH_MMP || PLAT_ORION
+ 	help
+ 	  This enables the driver for the NAND flash device found on
+-	  PXA3xx processors
++	  PXA3xx processors (NFCv1) and also on Armada 370/XP (NFCv2).
+ 
+ config MTD_NAND_SLC_LPC32XX
+ 	tristate "NXP LPC32xx SLC Controller"
+diff --git a/drivers/mtd/nand/pxa3xx_nand.c b/drivers/mtd/nand/pxa3xx_nand.c
+index c28d4e2..31aae53 100644
+--- a/drivers/mtd/nand/pxa3xx_nand.c
++++ b/drivers/mtd/nand/pxa3xx_nand.c
+@@ -7,6 +7,8 @@
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+  * published by the Free Software Foundation.
++ *
++ * See Documentation/mtd/nand/pxa3xx-nand.txt for more details.
+  */
+ 
+ #include <linux/kernel.h>
+@@ -24,6 +26,7 @@
+ #include <linux/slab.h>
+ #include <linux/of.h>
+ #include <linux/of_device.h>
++#include <linux/of_mtd.h>
+ 
+ #if defined(CONFIG_ARCH_PXA) || defined(CONFIG_ARCH_MMP)
+ #define ARCH_HAS_DMA
+@@ -35,10 +38,18 @@
+ 
+ #include <linux/platform_data/mtd-nand-pxa3xx.h>
+ 
++#define NAND_DEV_READY_TIMEOUT  50
+ #define	CHIP_DELAY_TIMEOUT	(2 * HZ/10)
+ #define NAND_STOP_DELAY		(2 * HZ/50)
+ #define PAGE_CHUNK_SIZE		(2048)
+ 
++/*
++ * Define a buffer size for the initial command that detects the flash device:
++ * STATUS, READID and PARAM. The largest of these is the PARAM command,
++ * needing 256 bytes.
++ */
++#define INIT_BUFFER_SIZE	256
++
+ /* registers and bit definitions */
+ #define NDCR		(0x00) /* Control register */
+ #define NDTR0CS0	(0x04) /* Timing Parameter 0 for CS0 */
+@@ -47,6 +58,7 @@
+ #define NDPCR		(0x18) /* Page Count Register */
+ #define NDBDR0		(0x1C) /* Bad Block Register 0 */
+ #define NDBDR1		(0x20) /* Bad Block Register 1 */
++#define NDECCCTRL	(0x28) /* ECC control */
+ #define NDDB		(0x40) /* Data Buffer */
+ #define NDCB0		(0x48) /* Command Buffer0 */
+ #define NDCB1		(0x4C) /* Command Buffer1 */
+@@ -73,6 +85,9 @@
+ #define NDCR_INT_MASK           (0xFFF)
+ 
+ #define NDSR_MASK		(0xfff)
++#define NDSR_ERR_CNT_OFF	(16)
++#define NDSR_ERR_CNT_MASK       (0x1f)
++#define NDSR_ERR_CNT(sr)	((sr >> NDSR_ERR_CNT_OFF) & NDSR_ERR_CNT_MASK)
+ #define NDSR_RDY                (0x1 << 12)
+ #define NDSR_FLASH_RDY          (0x1 << 11)
+ #define NDSR_CS0_PAGED		(0x1 << 10)
+@@ -81,8 +96,8 @@
+ #define NDSR_CS1_CMDD		(0x1 << 7)
+ #define NDSR_CS0_BBD		(0x1 << 6)
+ #define NDSR_CS1_BBD		(0x1 << 5)
+-#define NDSR_DBERR		(0x1 << 4)
+-#define NDSR_SBERR		(0x1 << 3)
++#define NDSR_UNCORERR		(0x1 << 4)
++#define NDSR_CORERR		(0x1 << 3)
+ #define NDSR_WRDREQ		(0x1 << 2)
+ #define NDSR_RDDREQ		(0x1 << 1)
+ #define NDSR_WRCMDREQ		(0x1)
+@@ -91,6 +106,8 @@
+ #define NDCB0_ST_ROW_EN         (0x1 << 26)
+ #define NDCB0_AUTO_RS		(0x1 << 25)
+ #define NDCB0_CSEL		(0x1 << 24)
++#define NDCB0_EXT_CMD_TYPE_MASK	(0x7 << 29)
++#define NDCB0_EXT_CMD_TYPE(x)	(((x) << 29) & NDCB0_EXT_CMD_TYPE_MASK)
+ #define NDCB0_CMD_TYPE_MASK	(0x7 << 21)
+ #define NDCB0_CMD_TYPE(x)	(((x) << 21) & NDCB0_CMD_TYPE_MASK)
+ #define NDCB0_NC		(0x1 << 20)
+@@ -101,6 +118,14 @@
+ #define NDCB0_CMD1_MASK		(0xff)
+ #define NDCB0_ADDR_CYC_SHIFT	(16)
+ 
++#define EXT_CMD_TYPE_DISPATCH	6 /* Command dispatch */
++#define EXT_CMD_TYPE_NAKED_RW	5 /* Naked read or Naked write */
++#define EXT_CMD_TYPE_READ	4 /* Read */
++#define EXT_CMD_TYPE_DISP_WR	4 /* Command dispatch with write */
++#define EXT_CMD_TYPE_FINAL	3 /* Final command */
++#define EXT_CMD_TYPE_LAST_RW	1 /* Last naked read/write */
++#define EXT_CMD_TYPE_MONO	0 /* Monolithic read/write */
++
+ /* macros for registers read/write */
+ #define nand_writel(info, off, val)	\
+ 	__raw_writel((val), (info)->mmio_base + (off))
+@@ -113,9 +138,9 @@ enum {
+ 	ERR_NONE	= 0,
+ 	ERR_DMABUSERR	= -1,
+ 	ERR_SENDCMD	= -2,
+-	ERR_DBERR	= -3,
++	ERR_UNCORERR	= -3,
+ 	ERR_BBERR	= -4,
+-	ERR_SBERR	= -5,
++	ERR_CORERR	= -5,
+ };
+ 
+ enum {
+@@ -142,7 +167,6 @@ struct pxa3xx_nand_host {
+ 	void			*info_data;
+ 
+ 	/* page size of attached chip */
+-	unsigned int		page_size;
+ 	int			use_ecc;
+ 	int			cs;
+ 
+@@ -160,10 +184,13 @@ struct pxa3xx_nand_info {
+ 	struct clk		*clk;
+ 	void __iomem		*mmio_base;
+ 	unsigned long		mmio_phys;
+-	struct completion	cmd_complete;
++	struct completion	cmd_complete, dev_ready;
+ 
+ 	unsigned int 		buf_start;
+ 	unsigned int		buf_count;
++	unsigned int		buf_size;
++	unsigned int		data_buff_pos;
++	unsigned int		oob_buff_pos;
+ 
+ 	/* DMA information */
+ 	int			drcmr_dat;
+@@ -187,13 +214,18 @@ struct pxa3xx_nand_info {
+ 
+ 	int			cs;
+ 	int			use_ecc;	/* use HW ECC ? */
++	int			ecc_bch;	/* using BCH ECC? */
+ 	int			use_dma;	/* use DMA ? */
+ 	int			use_spare;	/* use spare ? */
+-	int			is_ready;
++	int			need_wait;
+ 
+-	unsigned int		page_size;	/* page size of attached chip */
+-	unsigned int		data_size;	/* data size in FIFO */
++	unsigned int		data_size;	/* data to be read from FIFO */
++	unsigned int		chunk_size;	/* split commands chunk size */
+ 	unsigned int		oob_size;
++	unsigned int		spare_size;
++	unsigned int		ecc_size;
++	unsigned int		ecc_err_cnt;
++	unsigned int		max_bitflips;
+ 	int 			retcode;
+ 
+ 	/* cached register value */
+@@ -231,6 +263,54 @@ static struct pxa3xx_nand_flash builtin_flash_types[] = {
+ { "256MiB 16-bit", 0xba20,  64, 2048, 16, 16, 2048, &timing[3] },
+ };
+ 
++static u8 bbt_pattern[] = {'M', 'V', 'B', 'b', 't', '0' };
++static u8 bbt_mirror_pattern[] = {'1', 't', 'b', 'B', 'V', 'M' };
++
++static struct nand_bbt_descr bbt_main_descr = {
++	.options = NAND_BBT_LASTBLOCK | NAND_BBT_CREATE | NAND_BBT_WRITE
++		| NAND_BBT_2BIT | NAND_BBT_VERSION,
++	.offs =	8,
++	.len = 6,
++	.veroffs = 14,
++	.maxblocks = 8,		/* Last 8 blocks in each chip */
++	.pattern = bbt_pattern
++};
++
++static struct nand_bbt_descr bbt_mirror_descr = {
++	.options = NAND_BBT_LASTBLOCK | NAND_BBT_CREATE | NAND_BBT_WRITE
++		| NAND_BBT_2BIT | NAND_BBT_VERSION,
++	.offs =	8,
++	.len = 6,
++	.veroffs = 14,
++	.maxblocks = 8,		/* Last 8 blocks in each chip */
++	.pattern = bbt_mirror_pattern
++};
++
++static struct nand_ecclayout ecc_layout_4KB_bch4bit = {
++	.eccbytes = 64,
++	.eccpos = {
++		32,  33,  34,  35,  36,  37,  38,  39,
++		40,  41,  42,  43,  44,  45,  46,  47,
++		48,  49,  50,  51,  52,  53,  54,  55,
++		56,  57,  58,  59,  60,  61,  62,  63,
++		96,  97,  98,  99,  100, 101, 102, 103,
++		104, 105, 106, 107, 108, 109, 110, 111,
++		112, 113, 114, 115, 116, 117, 118, 119,
++		120, 121, 122, 123, 124, 125, 126, 127},
++	/* Bootrom looks in bytes 0 & 5 for bad blocks */
++	.oobfree = { {6, 26}, { 64, 32} }
++};
++
++static struct nand_ecclayout ecc_layout_4KB_bch8bit = {
++	.eccbytes = 128,
++	.eccpos = {
++		32,  33,  34,  35,  36,  37,  38,  39,
++		40,  41,  42,  43,  44,  45,  46,  47,
++		48,  49,  50,  51,  52,  53,  54,  55,
++		56,  57,  58,  59,  60,  61,  62,  63},
++	.oobfree = { }
++};
++
+ /* Define a default flash type setting serve as flash detecting only */
+ #define DEFAULT_FLASH_TYPE (&builtin_flash_types[0])
+ 
+@@ -248,6 +328,29 @@ static struct pxa3xx_nand_flash builtin_flash_types[] = {
+ /* convert nano-seconds to nand flash controller clock cycles */
+ #define ns2cycle(ns, clk)	(int)((ns) * (clk / 1000000) / 1000)
+ 
++static struct of_device_id pxa3xx_nand_dt_ids[] = {
++	{
++		.compatible = "marvell,pxa3xx-nand",
++		.data       = (void *)PXA3XX_NAND_VARIANT_PXA,
++	},
++	{
++		.compatible = "marvell,armada370-nand",
++		.data       = (void *)PXA3XX_NAND_VARIANT_ARMADA370,
++	},
++	{}
++};
++MODULE_DEVICE_TABLE(of, pxa3xx_nand_dt_ids);
++
++static enum pxa3xx_nand_variant
++pxa3xx_nand_get_variant(struct platform_device *pdev)
++{
++	const struct of_device_id *of_id =
++			of_match_device(pxa3xx_nand_dt_ids, &pdev->dev);
++	if (!of_id)
++		return PXA3XX_NAND_VARIANT_PXA;
++	return (enum pxa3xx_nand_variant)of_id->data;
++}
++
+ static void pxa3xx_nand_set_timing(struct pxa3xx_nand_host *host,
+ 				   const struct pxa3xx_nand_timing *t)
+ {
+@@ -272,25 +375,23 @@ static void pxa3xx_nand_set_timing(struct pxa3xx_nand_host *host,
+ 	nand_writel(info, NDTR1CS0, ndtr1);
+ }
+ 
+-static void pxa3xx_set_datasize(struct pxa3xx_nand_info *info)
++/*
++ * Set the data and OOB size, depending on the selected
++ * spare and ECC configuration.
++ * Only applicable to READ0, READOOB and PAGEPROG commands.
++ */
++static void pxa3xx_set_datasize(struct pxa3xx_nand_info *info,
++				struct mtd_info *mtd)
+ {
+-	struct pxa3xx_nand_host *host = info->host[info->cs];
+ 	int oob_enable = info->reg_ndcr & NDCR_SPARE_EN;
+ 
+-	info->data_size = host->page_size;
+-	if (!oob_enable) {
+-		info->oob_size = 0;
++	info->data_size = mtd->writesize;
++	if (!oob_enable)
+ 		return;
+-	}
+ 
+-	switch (host->page_size) {
+-	case 2048:
+-		info->oob_size = (info->use_ecc) ? 40 : 64;
+-		break;
+-	case 512:
+-		info->oob_size = (info->use_ecc) ? 8 : 16;
+-		break;
+-	}
++	info->oob_size = info->spare_size;
++	if (!info->use_ecc)
++		info->oob_size += info->ecc_size;
+ }
+ 
+ /**
+@@ -305,10 +406,15 @@ static void pxa3xx_nand_start(struct pxa3xx_nand_info *info)
+ 
+ 	ndcr = info->reg_ndcr;
+ 
+-	if (info->use_ecc)
++	if (info->use_ecc) {
+ 		ndcr |= NDCR_ECC_EN;
+-	else
++		if (info->ecc_bch)
++			nand_writel(info, NDECCCTRL, 0x1);
++	} else {
+ 		ndcr &= ~NDCR_ECC_EN;
++		if (info->ecc_bch)
++			nand_writel(info, NDECCCTRL, 0x0);
++	}
+ 
+ 	if (info->use_dma)
+ 		ndcr |= NDCR_DMA_EN;
+@@ -367,26 +473,39 @@ static void disable_int(struct pxa3xx_nand_info *info, uint32_t int_mask)
+ 
+ static void handle_data_pio(struct pxa3xx_nand_info *info)
+ {
++	unsigned int do_bytes = min(info->data_size, info->chunk_size);
++
+ 	switch (info->state) {
+ 	case STATE_PIO_WRITING:
+-		__raw_writesl(info->mmio_base + NDDB, info->data_buff,
+-				DIV_ROUND_UP(info->data_size, 4));
++		__raw_writesl(info->mmio_base + NDDB,
++			      info->data_buff + info->data_buff_pos,
++			      DIV_ROUND_UP(do_bytes, 4));
++
+ 		if (info->oob_size > 0)
+-			__raw_writesl(info->mmio_base + NDDB, info->oob_buff,
+-					DIV_ROUND_UP(info->oob_size, 4));
++			__raw_writesl(info->mmio_base + NDDB,
++				      info->oob_buff + info->oob_buff_pos,
++				      DIV_ROUND_UP(info->oob_size, 4));
+ 		break;
+ 	case STATE_PIO_READING:
+-		__raw_readsl(info->mmio_base + NDDB, info->data_buff,
+-				DIV_ROUND_UP(info->data_size, 4));
++		__raw_readsl(info->mmio_base + NDDB,
++			     info->data_buff + info->data_buff_pos,
++			     DIV_ROUND_UP(do_bytes, 4));
++
+ 		if (info->oob_size > 0)
+-			__raw_readsl(info->mmio_base + NDDB, info->oob_buff,
+-					DIV_ROUND_UP(info->oob_size, 4));
++			__raw_readsl(info->mmio_base + NDDB,
++				     info->oob_buff + info->oob_buff_pos,
++				     DIV_ROUND_UP(info->oob_size, 4));
+ 		break;
+ 	default:
+ 		dev_err(&info->pdev->dev, "%s: invalid state %d\n", __func__,
+ 				info->state);
+ 		BUG();
+ 	}
++
++	/* Update buffer pointers for multi-page read/write */
++	info->data_buff_pos += do_bytes;
++	info->oob_buff_pos += info->oob_size;
++	info->data_size -= do_bytes;
+ }
+ 
+ #ifdef ARCH_HAS_DMA
+@@ -444,7 +563,7 @@ static void start_data_dma(struct pxa3xx_nand_info *info)
+ static irqreturn_t pxa3xx_nand_irq(int irq, void *devid)
+ {
+ 	struct pxa3xx_nand_info *info = devid;
+-	unsigned int status, is_completed = 0;
++	unsigned int status, is_completed = 0, is_ready = 0;
+ 	unsigned int ready, cmd_done;
+ 
+ 	if (info->cs == 0) {
+@@ -457,10 +576,25 @@ static irqreturn_t pxa3xx_nand_irq(int irq, void *devid)
+ 
+ 	status = nand_readl(info, NDSR);
+ 
+-	if (status & NDSR_DBERR)
+-		info->retcode = ERR_DBERR;
+-	if (status & NDSR_SBERR)
+-		info->retcode = ERR_SBERR;
++	if (status & NDSR_UNCORERR)
++		info->retcode = ERR_UNCORERR;
++	if (status & NDSR_CORERR) {
++		info->retcode = ERR_CORERR;
++		if (info->variant == PXA3XX_NAND_VARIANT_ARMADA370 &&
++		    info->ecc_bch)
++			info->ecc_err_cnt = NDSR_ERR_CNT(status);
++		else
++			info->ecc_err_cnt = 1;
++
++		/*
++		 * Each chunk composing a page is corrected independently,
++		 * and we need to store maximum number of corrected bitflips
++		 * to return it to the MTD layer in ecc.read_page().
++		 */
++		info->max_bitflips = max_t(unsigned int,
++					   info->max_bitflips,
++					   info->ecc_err_cnt);
++	}
+ 	if (status & (NDSR_RDDREQ | NDSR_WRDREQ)) {
+ 		/* whether use dma to transfer data */
+ 		if (info->use_dma) {
+@@ -480,8 +614,8 @@ static irqreturn_t pxa3xx_nand_irq(int irq, void *devid)
+ 		is_completed = 1;
+ 	}
+ 	if (status & ready) {
+-		info->is_ready = 1;
+ 		info->state = STATE_READY;
++		is_ready = 1;
+ 	}
+ 
+ 	if (status & NDSR_WRCMDREQ) {
+@@ -510,6 +644,8 @@ static irqreturn_t pxa3xx_nand_irq(int irq, void *devid)
+ 	nand_writel(info, NDSR, status);
+ 	if (is_completed)
+ 		complete(&info->cmd_complete);
++	if (is_ready)
++		complete(&info->dev_ready);
+ NORMAL_IRQ_EXIT:
+ 	return IRQ_HANDLED;
+ }
+@@ -522,52 +658,94 @@ static inline int is_buf_blank(uint8_t *buf, size_t len)
+ 	return 1;
+ }
+ 
+-static int prepare_command_pool(struct pxa3xx_nand_info *info, int command,
+-		uint16_t column, int page_addr)
++static void set_command_address(struct pxa3xx_nand_info *info,
++		unsigned int page_size, uint16_t column, int page_addr)
+ {
+-	int addr_cycle, exec_cmd;
+-	struct pxa3xx_nand_host *host;
+-	struct mtd_info *mtd;
++	/* small page addr setting */
++	if (page_size < PAGE_CHUNK_SIZE) {
++		info->ndcb1 = ((page_addr & 0xFFFFFF) << 8)
++				| (column & 0xFF);
+ 
+-	host = info->host[info->cs];
+-	mtd = host->mtd;
+-	addr_cycle = 0;
+-	exec_cmd = 1;
++		info->ndcb2 = 0;
++	} else {
++		info->ndcb1 = ((page_addr & 0xFFFF) << 16)
++				| (column & 0xFFFF);
++
++		if (page_addr & 0xFF0000)
++			info->ndcb2 = (page_addr & 0xFF0000) >> 16;
++		else
++			info->ndcb2 = 0;
++	}
++}
++
++static void prepare_start_command(struct pxa3xx_nand_info *info, int command)
++{
++	struct pxa3xx_nand_host *host = info->host[info->cs];
++	struct mtd_info *mtd = host->mtd;
+ 
+ 	/* reset data and oob column point to handle data */
+ 	info->buf_start		= 0;
+ 	info->buf_count		= 0;
+ 	info->oob_size		= 0;
++	info->data_buff_pos	= 0;
++	info->oob_buff_pos	= 0;
+ 	info->use_ecc		= 0;
+ 	info->use_spare		= 1;
+-	info->use_dma		= (use_dma) ? 1 : 0;
+-	info->is_ready		= 0;
+ 	info->retcode		= ERR_NONE;
+-	if (info->cs != 0)
+-		info->ndcb0 = NDCB0_CSEL;
+-	else
+-		info->ndcb0 = 0;
++	info->ecc_err_cnt	= 0;
++	info->ndcb3		= 0;
++	info->need_wait		= 0;
+ 
+ 	switch (command) {
+ 	case NAND_CMD_READ0:
+ 	case NAND_CMD_PAGEPROG:
+ 		info->use_ecc = 1;
+ 	case NAND_CMD_READOOB:
+-		pxa3xx_set_datasize(info);
++		pxa3xx_set_datasize(info, mtd);
+ 		break;
+ 	case NAND_CMD_PARAM:
+ 		info->use_spare = 0;
+ 		break;
+-	case NAND_CMD_SEQIN:
+-		exec_cmd = 0;
+-		break;
+ 	default:
+ 		info->ndcb1 = 0;
+ 		info->ndcb2 = 0;
+-		info->ndcb3 = 0;
+ 		break;
+ 	}
+ 
++	/*
++	 * If we are about to issue a read command, or about to set
++	 * the write address, then clean the data buffer.
++	 */
++	if (command == NAND_CMD_READ0 ||
++	    command == NAND_CMD_READOOB ||
++	    command == NAND_CMD_SEQIN) {
++
++		info->buf_count = mtd->writesize + mtd->oobsize;
++		memset(info->data_buff, 0xFF, info->buf_count);
++	}
++
++}
++
++static int prepare_set_command(struct pxa3xx_nand_info *info, int command,
++		int ext_cmd_type, uint16_t column, int page_addr)
++{
++	int addr_cycle, exec_cmd;
++	struct pxa3xx_nand_host *host;
++	struct mtd_info *mtd;
++
++	host = info->host[info->cs];
++	mtd = host->mtd;
++	addr_cycle = 0;
++	exec_cmd = 1;
++
++	if (info->cs != 0)
++		info->ndcb0 = NDCB0_CSEL;
++	else
++		info->ndcb0 = 0;
++
++	if (command == NAND_CMD_SEQIN)
++		exec_cmd = 0;
++
+ 	addr_cycle = NDCB0_ADDR_CYC(host->row_addr_cycles
+ 				    + host->col_addr_cycles);
+ 
+@@ -582,30 +760,42 @@ static int prepare_command_pool(struct pxa3xx_nand_info *info, int command,
+ 		if (command == NAND_CMD_READOOB)
+ 			info->buf_start += mtd->writesize;
+ 
+-		/* Second command setting for large pages */
+-		if (host->page_size >= PAGE_CHUNK_SIZE)
++		/*
++		 * Multiple page read needs an 'extended command type' field,
++		 * which is either naked-read or last-read according to the
++		 * state.
++		 */
++		if (mtd->writesize == PAGE_CHUNK_SIZE) {
+ 			info->ndcb0 |= NDCB0_DBC | (NAND_CMD_READSTART << 8);
++		} else if (mtd->writesize > PAGE_CHUNK_SIZE) {
++			info->ndcb0 |= NDCB0_DBC | (NAND_CMD_READSTART << 8)
++					| NDCB0_LEN_OVRD
++					| NDCB0_EXT_CMD_TYPE(ext_cmd_type);
++			info->ndcb3 = info->chunk_size +
++				      info->oob_size;
++		}
++
++		set_command_address(info, mtd->writesize, column, page_addr);
++		break;
+ 
+ 	case NAND_CMD_SEQIN:
+-		/* small page addr setting */
+-		if (unlikely(host->page_size < PAGE_CHUNK_SIZE)) {
+-			info->ndcb1 = ((page_addr & 0xFFFFFF) << 8)
+-					| (column & 0xFF);
+ 
+-			info->ndcb2 = 0;
+-		} else {
+-			info->ndcb1 = ((page_addr & 0xFFFF) << 16)
+-					| (column & 0xFFFF);
++		info->buf_start = column;
++		set_command_address(info, mtd->writesize, 0, page_addr);
+ 
+-			if (page_addr & 0xFF0000)
+-				info->ndcb2 = (page_addr & 0xFF0000) >> 16;
+-			else
+-				info->ndcb2 = 0;
++		/*
++		 * Multiple page programming needs to execute the initial
++		 * SEQIN command that sets the page address.
++		 */
++		if (mtd->writesize > PAGE_CHUNK_SIZE) {
++			info->ndcb0 |= NDCB0_CMD_TYPE(0x1)
++				| NDCB0_EXT_CMD_TYPE(ext_cmd_type)
++				| addr_cycle
++				| command;
++			/* No data transfer in this case */
++			info->data_size = 0;
++			exec_cmd = 1;
+ 		}
+-
+-		info->buf_count = mtd->writesize + mtd->oobsize;
+-		memset(info->data_buff, 0xFF, info->buf_count);
+-
+ 		break;
+ 
+ 	case NAND_CMD_PAGEPROG:
+@@ -615,13 +805,40 @@ static int prepare_command_pool(struct pxa3xx_nand_info *info, int command,
+ 			break;
+ 		}
+ 
+-		info->ndcb0 |= NDCB0_CMD_TYPE(0x1)
+-				| NDCB0_AUTO_RS
+-				| NDCB0_ST_ROW_EN
+-				| NDCB0_DBC
+-				| (NAND_CMD_PAGEPROG << 8)
+-				| NAND_CMD_SEQIN
+-				| addr_cycle;
++		/* Second command setting for large pages */
++		if (mtd->writesize > PAGE_CHUNK_SIZE) {
++			/*
++			 * Multiple page write uses the 'extended command'
++			 * field. This can be used to issue a command dispatch
++			 * or a naked-write depending on the current stage.
++			 */
++			info->ndcb0 |= NDCB0_CMD_TYPE(0x1)
++					| NDCB0_LEN_OVRD
++					| NDCB0_EXT_CMD_TYPE(ext_cmd_type);
++			info->ndcb3 = info->chunk_size +
++				      info->oob_size;
++
++			/*
++			 * This is the command dispatch that completes a chunked
++			 * page program operation.
++			 */
++			if (info->data_size == 0) {
++				info->ndcb0 = NDCB0_CMD_TYPE(0x1)
++					| NDCB0_EXT_CMD_TYPE(ext_cmd_type)
++					| command;
++				info->ndcb1 = 0;
++				info->ndcb2 = 0;
++				info->ndcb3 = 0;
++			}
++		} else {
++			info->ndcb0 |= NDCB0_CMD_TYPE(0x1)
++					| NDCB0_AUTO_RS
++					| NDCB0_ST_ROW_EN
++					| NDCB0_DBC
++					| (NAND_CMD_PAGEPROG << 8)
++					| NAND_CMD_SEQIN
++					| addr_cycle;
++		}
+ 		break;
+ 
+ 	case NAND_CMD_PARAM:
+@@ -684,8 +901,8 @@ static int prepare_command_pool(struct pxa3xx_nand_info *info, int command,
+ 	return exec_cmd;
+ }
+ 
+-static void pxa3xx_nand_cmdfunc(struct mtd_info *mtd, unsigned command,
+-				int column, int page_addr)
++static void nand_cmdfunc(struct mtd_info *mtd, unsigned command,
++			 int column, int page_addr)
+ {
+ 	struct pxa3xx_nand_host *host = mtd->priv;
+ 	struct pxa3xx_nand_info *info = host->info_data;
+@@ -710,10 +927,15 @@ static void pxa3xx_nand_cmdfunc(struct mtd_info *mtd, unsigned command,
+ 		nand_writel(info, NDTR1CS0, info->ndtr1cs0);
+ 	}
+ 
++	prepare_start_command(info, command);
++
+ 	info->state = STATE_PREPARED;
+-	exec_cmd = prepare_command_pool(info, command, column, page_addr);
++	exec_cmd = prepare_set_command(info, command, 0, column, page_addr);
++
+ 	if (exec_cmd) {
+ 		init_completion(&info->cmd_complete);
++		init_completion(&info->dev_ready);
++		info->need_wait = 1;
+ 		pxa3xx_nand_start(info);
+ 
+ 		ret = wait_for_completion_timeout(&info->cmd_complete,
+@@ -727,6 +949,117 @@ static void pxa3xx_nand_cmdfunc(struct mtd_info *mtd, unsigned command,
+ 	info->state = STATE_IDLE;
+ }
+ 
++static void nand_cmdfunc_extended(struct mtd_info *mtd,
++				  const unsigned command,
++				  int column, int page_addr)
++{
++	struct pxa3xx_nand_host *host = mtd->priv;
++	struct pxa3xx_nand_info *info = host->info_data;
++	int ret, exec_cmd, ext_cmd_type;
++
++	/*
++	 * if this is a x16 device then convert the input
++	 * "byte" address into a "word" address appropriate
++	 * for indexing a word-oriented device
++	 */
++	if (info->reg_ndcr & NDCR_DWIDTH_M)
++		column /= 2;
++
++	/*
++	 * There may be different NAND chip hooked to
++	 * different chip select, so check whether
++	 * chip select has been changed, if yes, reset the timing
++	 */
++	if (info->cs != host->cs) {
++		info->cs = host->cs;
++		nand_writel(info, NDTR0CS0, info->ndtr0cs0);
++		nand_writel(info, NDTR1CS0, info->ndtr1cs0);
++	}
++
++	/* Select the extended command for the first command */
++	switch (command) {
++	case NAND_CMD_READ0:
++	case NAND_CMD_READOOB:
++		ext_cmd_type = EXT_CMD_TYPE_MONO;
++		break;
++	case NAND_CMD_SEQIN:
++		ext_cmd_type = EXT_CMD_TYPE_DISPATCH;
++		break;
++	case NAND_CMD_PAGEPROG:
++		ext_cmd_type = EXT_CMD_TYPE_NAKED_RW;
++		break;
++	default:
++		ext_cmd_type = 0;
++		break;
++	}
++
++	prepare_start_command(info, command);
++
++	/*
++	 * Prepare the "is ready" completion before starting a command
++	 * transaction sequence. If the command is not executed the
++	 * completion will be completed, see below.
++	 *
++	 * We can do that inside the loop because the command variable
++	 * is invariant and thus so is the exec_cmd.
++	 */
++	info->need_wait = 1;
++	init_completion(&info->dev_ready);
++	do {
++		info->state = STATE_PREPARED;
++		exec_cmd = prepare_set_command(info, command, ext_cmd_type,
++					       column, page_addr);
++		if (!exec_cmd) {
++			info->need_wait = 0;
++			complete(&info->dev_ready);
++			break;
++		}
++
++		init_completion(&info->cmd_complete);
++		pxa3xx_nand_start(info);
++
++		ret = wait_for_completion_timeout(&info->cmd_complete,
++				CHIP_DELAY_TIMEOUT);
++		if (!ret) {
++			dev_err(&info->pdev->dev, "Wait time out!!!\n");
++			/* Stop State Machine for next command cycle */
++			pxa3xx_nand_stop(info);
++			break;
++		}
++
++		/* Check if the sequence is complete */
++		if (info->data_size == 0 && command != NAND_CMD_PAGEPROG)
++			break;
++
++		/*
++		 * After a splitted program command sequence has issued
++		 * the command dispatch, the command sequence is complete.
++		 */
++		if (info->data_size == 0 &&
++		    command == NAND_CMD_PAGEPROG &&
++		    ext_cmd_type == EXT_CMD_TYPE_DISPATCH)
++			break;
++
++		if (command == NAND_CMD_READ0 || command == NAND_CMD_READOOB) {
++			/* Last read: issue a 'last naked read' */
++			if (info->data_size == info->chunk_size)
++				ext_cmd_type = EXT_CMD_TYPE_LAST_RW;
++			else
++				ext_cmd_type = EXT_CMD_TYPE_NAKED_RW;
++
++		/*
++		 * If a splitted program command has no more data to transfer,
++		 * the command dispatch must be issued to complete.
++		 */
++		} else if (command == NAND_CMD_PAGEPROG &&
++			   info->data_size == 0) {
++				ext_cmd_type = EXT_CMD_TYPE_DISPATCH;
++		}
++	} while (1);
++
++	info->state = STATE_IDLE;
++}
++
+ static int pxa3xx_nand_write_page_hwecc(struct mtd_info *mtd,
+ 		struct nand_chip *chip, const uint8_t *buf, int oob_required)
+ {
+@@ -746,20 +1079,14 @@ static int pxa3xx_nand_read_page_hwecc(struct mtd_info *mtd,
+ 	chip->read_buf(mtd, buf, mtd->writesize);
+ 	chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
+ 
+-	if (info->retcode == ERR_SBERR) {
+-		switch (info->use_ecc) {
+-		case 1:
+-			mtd->ecc_stats.corrected++;
+-			break;
+-		case 0:
+-		default:
+-			break;
+-		}
+-	} else if (info->retcode == ERR_DBERR) {
++	if (info->retcode == ERR_CORERR && info->use_ecc) {
++		mtd->ecc_stats.corrected += info->ecc_err_cnt;
++
++	} else if (info->retcode == ERR_UNCORERR) {
+ 		/*
+ 		 * for blank page (all 0xff), HW will calculate its ECC as
+ 		 * 0, which is different from the ECC information within
+-		 * OOB, ignore such double bit errors
++		 * OOB, ignore such uncorrectable errors
+ 		 */
+ 		if (is_buf_blank(buf, mtd->writesize))
+ 			info->retcode = ERR_NONE;
+@@ -767,7 +1094,7 @@ static int pxa3xx_nand_read_page_hwecc(struct mtd_info *mtd,
+ 			mtd->ecc_stats.failed++;
+ 	}
+ 
+-	return 0;
++	return info->max_bitflips;
+ }
+ 
+ static uint8_t pxa3xx_nand_read_byte(struct mtd_info *mtd)
+@@ -826,21 +1153,27 @@ static int pxa3xx_nand_waitfunc(struct mtd_info *mtd, struct nand_chip *this)
+ {
+ 	struct pxa3xx_nand_host *host = mtd->priv;
+ 	struct pxa3xx_nand_info *info = host->info_data;
++	int ret;
++
++	if (info->need_wait) {
++		ret = wait_for_completion_timeout(&info->dev_ready,
++				CHIP_DELAY_TIMEOUT);
++		info->need_wait = 0;
++		if (!ret) {
++			dev_err(&info->pdev->dev, "Ready time out!!!\n");
++			return NAND_STATUS_FAIL;
++		}
++	}
+ 
+ 	/* pxa3xx_nand_send_command has waited for command complete */
+ 	if (this->state == FL_WRITING || this->state == FL_ERASING) {
+ 		if (info->retcode == ERR_NONE)
+ 			return 0;
+-		else {
+-			/*
+-			 * any error make it return 0x01 which will tell
+-			 * the caller the erase and write fail
+-			 */
+-			return 0x01;
+-		}
++		else
++			return NAND_STATUS_FAIL;
+ 	}
+ 
+-	return 0;
++	return NAND_STATUS_READY;
+ }
+ 
+ static int pxa3xx_nand_config_flash(struct pxa3xx_nand_info *info,
+@@ -862,7 +1195,6 @@ static int pxa3xx_nand_config_flash(struct pxa3xx_nand_info *info,
+ 	}
+ 
+ 	/* calculate flash information */
+-	host->page_size = f->page_size;
+ 	host->read_id_bytes = (f->page_size == 2048) ? 4 : 2;
+ 
+ 	/* calculate addressing information */
+@@ -899,39 +1231,35 @@ static int pxa3xx_nand_detect_config(struct pxa3xx_nand_info *info)
+ 	uint32_t ndcr = nand_readl(info, NDCR);
+ 
+ 	if (ndcr & NDCR_PAGE_SZ) {
+-		host->page_size = 2048;
++		/* Controller's FIFO size */
++		info->chunk_size = 2048;
+ 		host->read_id_bytes = 4;
+ 	} else {
+-		host->page_size = 512;
++		info->chunk_size = 512;
+ 		host->read_id_bytes = 2;
+ 	}
+ 
++	/* Set an initial chunk size */
+ 	info->reg_ndcr = ndcr & ~NDCR_INT_MASK;
+ 	info->ndtr0cs0 = nand_readl(info, NDTR0CS0);
+ 	info->ndtr1cs0 = nand_readl(info, NDTR1CS0);
+ 	return 0;
+ }
+ 
+-/* the maximum possible buffer size for large page with OOB data
+- * is: 2048 + 64 = 2112 bytes, allocate a page here for both the
+- * data buffer and the DMA descriptor
+- */
+-#define MAX_BUFF_SIZE	PAGE_SIZE
+-
+ #ifdef ARCH_HAS_DMA
+ static int pxa3xx_nand_init_buff(struct pxa3xx_nand_info *info)
+ {
+ 	struct platform_device *pdev = info->pdev;
+-	int data_desc_offset = MAX_BUFF_SIZE - sizeof(struct pxa_dma_desc);
++	int data_desc_offset = info->buf_size - sizeof(struct pxa_dma_desc);
+ 
+ 	if (use_dma == 0) {
+-		info->data_buff = kmalloc(MAX_BUFF_SIZE, GFP_KERNEL);
++		info->data_buff = kmalloc(info->buf_size, GFP_KERNEL);
+ 		if (info->data_buff == NULL)
+ 			return -ENOMEM;
+ 		return 0;
+ 	}
+ 
+-	info->data_buff = dma_alloc_coherent(&pdev->dev, MAX_BUFF_SIZE,
++	info->data_buff = dma_alloc_coherent(&pdev->dev, info->buf_size,
+ 				&info->data_buff_phys, GFP_KERNEL);
+ 	if (info->data_buff == NULL) {
+ 		dev_err(&pdev->dev, "failed to allocate dma buffer\n");
+@@ -945,20 +1273,25 @@ static int pxa3xx_nand_init_buff(struct pxa3xx_nand_info *info)
+ 				pxa3xx_nand_data_dma_irq, info);
+ 	if (info->data_dma_ch < 0) {
+ 		dev_err(&pdev->dev, "failed to request data dma\n");
+-		dma_free_coherent(&pdev->dev, MAX_BUFF_SIZE,
++		dma_free_coherent(&pdev->dev, info->buf_size,
+ 				info->data_buff, info->data_buff_phys);
+ 		return info->data_dma_ch;
+ 	}
+ 
++	/*
++	 * Now that DMA buffers are allocated we turn on
++	 * DMA proper for I/O operations.
++	 */
++	info->use_dma = 1;
+ 	return 0;
+ }
+ 
+ static void pxa3xx_nand_free_buff(struct pxa3xx_nand_info *info)
+ {
+ 	struct platform_device *pdev = info->pdev;
+-	if (use_dma) {
++	if (info->use_dma) {
+ 		pxa_free_dma(info->data_dma_ch);
+-		dma_free_coherent(&pdev->dev, MAX_BUFF_SIZE,
++		dma_free_coherent(&pdev->dev, info->buf_size,
+ 				  info->data_buff, info->data_buff_phys);
+ 	} else {
+ 		kfree(info->data_buff);
+@@ -967,7 +1300,7 @@ static void pxa3xx_nand_free_buff(struct pxa3xx_nand_info *info)
+ #else
+ static int pxa3xx_nand_init_buff(struct pxa3xx_nand_info *info)
+ {
+-	info->data_buff = kmalloc(MAX_BUFF_SIZE, GFP_KERNEL);
++	info->data_buff = kmalloc(info->buf_size, GFP_KERNEL);
+ 	if (info->data_buff == NULL)
+ 		return -ENOMEM;
+ 	return 0;
+@@ -982,18 +1315,78 @@ static void pxa3xx_nand_free_buff(struct pxa3xx_nand_info *info)
+ static int pxa3xx_nand_sensing(struct pxa3xx_nand_info *info)
+ {
+ 	struct mtd_info *mtd;
++	struct nand_chip *chip;
+ 	int ret;
++
+ 	mtd = info->host[info->cs]->mtd;
++	chip = mtd->priv;
++
+ 	/* use the common timing to make a try */
+ 	ret = pxa3xx_nand_config_flash(info, &builtin_flash_types[0]);
+ 	if (ret)
+ 		return ret;
+ 
+-	pxa3xx_nand_cmdfunc(mtd, NAND_CMD_RESET, 0, 0);
+-	if (info->is_ready)
+-		return 0;
++	chip->cmdfunc(mtd, NAND_CMD_RESET, 0, 0);
++	ret = chip->waitfunc(mtd, chip);
++	if (ret & NAND_STATUS_FAIL)
++		return -ENODEV;
+ 
+-	return -ENODEV;
++	return 0;
++}
++
++static int pxa_ecc_init(struct pxa3xx_nand_info *info,
++			struct nand_ecc_ctrl *ecc,
++			int strength, int ecc_stepsize, int page_size)
++{
++	if (strength == 1 && ecc_stepsize == 512 && page_size == 2048) {
++		info->chunk_size = 2048;
++		info->spare_size = 40;
++		info->ecc_size = 24;
++		ecc->mode = NAND_ECC_HW;
++		ecc->size = 512;
++		ecc->strength = 1;
++		return 1;
++
++	} else if (strength == 1 && ecc_stepsize == 512 && page_size == 512) {
++		info->chunk_size = 512;
++		info->spare_size = 8;
++		info->ecc_size = 8;
++		ecc->mode = NAND_ECC_HW;
++		ecc->size = 512;
++		ecc->strength = 1;
++		return 1;
++
++	/*
++	 * Required ECC: 4-bit correction per 512 bytes
++	 * Select: 16-bit correction per 2048 bytes
++	 */
++	} else if (strength == 4 && ecc_stepsize == 512 && page_size == 4096) {
++		info->ecc_bch = 1;
++		info->chunk_size = 2048;
++		info->spare_size = 32;
++		info->ecc_size = 32;
++		ecc->mode = NAND_ECC_HW;
++		ecc->size = info->chunk_size;
++		ecc->layout = &ecc_layout_4KB_bch4bit;
++		ecc->strength = 16;
++		return 1;
++
++	/*
++	 * Required ECC: 8-bit correction per 512 bytes
++	 * Select: 16-bit correction per 1024 bytes
++	 */
++	} else if (strength == 8 && ecc_stepsize == 512 && page_size == 4096) {
++		info->ecc_bch = 1;
++		info->chunk_size = 1024;
++		info->spare_size = 0;
++		info->ecc_size = 32;
++		ecc->mode = NAND_ECC_HW;
++		ecc->size = info->chunk_size;
++		ecc->layout = &ecc_layout_4KB_bch8bit;
++		ecc->strength = 16;
++		return 1;
++	}
++	return 0;
+ }
+ 
+ static int pxa3xx_nand_scan(struct mtd_info *mtd)
+@@ -1008,6 +1401,7 @@ static int pxa3xx_nand_scan(struct mtd_info *mtd)
+ 	uint32_t id = -1;
+ 	uint64_t chipsize;
+ 	int i, ret, num;
++	uint16_t ecc_strength, ecc_step;
+ 
+ 	if (pdata->keep_config && !pxa3xx_nand_detect_config(info))
+ 		goto KEEP_CONFIG;
+@@ -1066,22 +1460,76 @@ static int pxa3xx_nand_scan(struct mtd_info *mtd)
+ 	pxa3xx_flash_ids[1].name = NULL;
+ 	def = pxa3xx_flash_ids;
+ KEEP_CONFIG:
+-	chip->ecc.mode = NAND_ECC_HW;
+-	chip->ecc.size = host->page_size;
+-	chip->ecc.strength = 1;
+-
+ 	if (info->reg_ndcr & NDCR_DWIDTH_M)
+ 		chip->options |= NAND_BUSWIDTH_16;
+ 
++	/* Device detection must be done with ECC disabled */
++	if (info->variant == PXA3XX_NAND_VARIANT_ARMADA370)
++		nand_writel(info, NDECCCTRL, 0x0);
++
+ 	if (nand_scan_ident(mtd, 1, def))
+ 		return -ENODEV;
++
++	if (pdata->flash_bbt) {
++		/*
++		 * We'll use a bad block table stored in-flash and don't
++		 * allow writing the bad block marker to the flash.
++		 */
++		chip->bbt_options |= NAND_BBT_USE_FLASH |
++				     NAND_BBT_NO_OOB_BBM;
++		chip->bbt_td = &bbt_main_descr;
++		chip->bbt_md = &bbt_mirror_descr;
++	}
++
++	/*
++	 * If the page size is bigger than the FIFO size, let's check
++	 * we are given the right variant and then switch to the extended
++	 * (aka splitted) command handling,
++	 */
++	if (mtd->writesize > PAGE_CHUNK_SIZE) {
++		if (info->variant == PXA3XX_NAND_VARIANT_ARMADA370) {
++			chip->cmdfunc = nand_cmdfunc_extended;
++		} else {
++			dev_err(&info->pdev->dev,
++				"unsupported page size on this variant\n");
++			return -ENODEV;
++		}
++	}
++
++	ecc_strength = chip->ecc_strength_ds;
++	ecc_step = chip->ecc_step_ds;
++
++	/* Set default ECC strength requirements on non-ONFI devices */
++	if (ecc_strength < 1 && ecc_step < 1) {
++		ecc_strength = 1;
++		ecc_step = 512;
++	}
++
++	ret = pxa_ecc_init(info, &chip->ecc, ecc_strength,
++			   ecc_step, mtd->writesize);
++	if (!ret) {
++		dev_err(&info->pdev->dev,
++			"ECC strength %d at page size %d is not supported\n",
++			chip->ecc_strength_ds, mtd->writesize);
++		return -ENODEV;
++	}
++
+ 	/* calculate addressing information */
+ 	if (mtd->writesize >= 2048)
+ 		host->col_addr_cycles = 2;
+ 	else
+ 		host->col_addr_cycles = 1;
+ 
++	/* release the initial buffer */
++	kfree(info->data_buff);
++
++	/* allocate the real data + oob buffer */
++	info->buf_size = mtd->writesize + mtd->oobsize;
++	ret = pxa3xx_nand_init_buff(info);
++	if (ret)
++		return ret;
+ 	info->oob_buff = info->data_buff + mtd->writesize;
++
+ 	if ((mtd->size >> chip->page_shift) > 65536)
+ 		host->row_addr_cycles = 3;
+ 	else
+@@ -1106,6 +1554,7 @@ static int alloc_nand_resource(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	info->pdev = pdev;
++	info->variant = pxa3xx_nand_get_variant(pdev);
+ 	for (cs = 0; cs < pdata->num_cs; cs++) {
+ 		mtd = (struct mtd_info *)((unsigned int)&info[1] +
+ 		      (sizeof(*mtd) + sizeof(*host)) * cs);
+@@ -1123,11 +1572,12 @@ static int alloc_nand_resource(struct platform_device *pdev)
+ 		chip->controller        = &info->controller;
+ 		chip->waitfunc		= pxa3xx_nand_waitfunc;
+ 		chip->select_chip	= pxa3xx_nand_select_chip;
+-		chip->cmdfunc		= pxa3xx_nand_cmdfunc;
+ 		chip->read_word		= pxa3xx_nand_read_word;
+ 		chip->read_byte		= pxa3xx_nand_read_byte;
+ 		chip->read_buf		= pxa3xx_nand_read_buf;
+ 		chip->write_buf		= pxa3xx_nand_write_buf;
++		chip->options		|= NAND_NO_SUBPAGE_WRITE;
++		chip->cmdfunc		= nand_cmdfunc;
+ 	}
+ 
+ 	spin_lock_init(&chip->controller->lock);
+@@ -1187,15 +1637,18 @@ static int alloc_nand_resource(struct platform_device *pdev)
+ 	}
+ 	info->mmio_phys = r->start;
+ 
+-	ret = pxa3xx_nand_init_buff(info);
+-	if (ret)
++	/* Allocate a buffer to allow flash detection */
++	info->buf_size = INIT_BUFFER_SIZE;
++	info->data_buff = kmalloc(info->buf_size, GFP_KERNEL);
++	if (info->data_buff == NULL) {
++		ret = -ENOMEM;
+ 		goto fail_disable_clk;
++	}
+ 
+ 	/* initialize all interrupts to be disabled */
+ 	disable_int(info, NDSR_MASK);
+ 
+-	ret = request_irq(irq, pxa3xx_nand_irq, IRQF_DISABLED,
+-			  pdev->name, info);
++	ret = request_irq(irq, pxa3xx_nand_irq, 0, pdev->name, info);
+ 	if (ret < 0) {
+ 		dev_err(&pdev->dev, "failed to request IRQ\n");
+ 		goto fail_free_buf;
+@@ -1207,7 +1660,7 @@ static int alloc_nand_resource(struct platform_device *pdev)
+ 
+ fail_free_buf:
+ 	free_irq(irq, info);
+-	pxa3xx_nand_free_buff(info);
++	kfree(info->data_buff);
+ fail_disable_clk:
+ 	clk_disable_unprepare(info->clk);
+ 	return ret;
+@@ -1236,29 +1689,6 @@ static int pxa3xx_nand_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-static struct of_device_id pxa3xx_nand_dt_ids[] = {
+-	{
+-		.compatible = "marvell,pxa3xx-nand",
+-		.data       = (void *)PXA3XX_NAND_VARIANT_PXA,
+-	},
+-	{
+-		.compatible = "marvell,armada370-nand",
+-		.data       = (void *)PXA3XX_NAND_VARIANT_ARMADA370,
+-	},
+-	{}
+-};
+-MODULE_DEVICE_TABLE(of, pxa3xx_nand_dt_ids);
+-
+-static enum pxa3xx_nand_variant
+-pxa3xx_nand_get_variant(struct platform_device *pdev)
+-{
+-	const struct of_device_id *of_id =
+-			of_match_device(pxa3xx_nand_dt_ids, &pdev->dev);
+-	if (!of_id)
+-		return PXA3XX_NAND_VARIANT_PXA;
+-	return (enum pxa3xx_nand_variant)of_id->data;
+-}
+-
+ static int pxa3xx_nand_probe_dt(struct platform_device *pdev)
+ {
+ 	struct pxa3xx_nand_platform_data *pdata;
+@@ -1278,6 +1708,7 @@ static int pxa3xx_nand_probe_dt(struct platform_device *pdev)
+ 	if (of_get_property(np, "marvell,nand-keep-config", NULL))
+ 		pdata->keep_config = 1;
+ 	of_property_read_u32(np, "num-cs", &pdata->num_cs);
++	pdata->flash_bbt = of_get_nand_on_flash_bbt(np);
+ 
+ 	pdev->dev.platform_data = pdata;
+ 
+@@ -1315,7 +1746,6 @@ static int pxa3xx_nand_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	info = platform_get_drvdata(pdev);
+-	info->variant = pxa3xx_nand_get_variant(pdev);
+ 	probe_success = 0;
+ 	for (cs = 0; cs < pdata->num_cs; cs++) {
+ 		struct mtd_info *mtd = info->host[cs]->mtd;
+@@ -1412,7 +1842,7 @@ static int pxa3xx_nand_resume(struct platform_device *pdev)
+ static struct platform_driver pxa3xx_nand_driver = {
+ 	.driver = {
+ 		.name	= "pxa3xx-nand",
+-		.of_match_table = of_match_ptr(pxa3xx_nand_dt_ids),
++		.of_match_table = pxa3xx_nand_dt_ids,
+ 	},
+ 	.probe		= pxa3xx_nand_probe,
+ 	.remove		= pxa3xx_nand_remove,
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 68bf6eb..83553bd 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1341,7 +1341,7 @@ static void mvneta_rxq_drop_pkts(struct mvneta_port *pp,
+ 
+ 		dev_kfree_skb_any(skb);
+ 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+-				 rx_desc->data_size, DMA_FROM_DEVICE);
++				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
+ 	}
+ 
+ 	if (rx_done)
+@@ -1387,7 +1387,7 @@ static int mvneta_rx(struct mvneta_port *pp, int rx_todo,
+ 		}
+ 
+ 		dma_unmap_single(pp->dev->dev.parent, rx_desc->buf_phys_addr,
+-				 rx_desc->data_size, DMA_FROM_DEVICE);
++				 MVNETA_RX_BUF_SIZE(pp->pkt_size), DMA_FROM_DEVICE);
+ 
+ 		rx_bytes = rx_desc->data_size -
+ 			(ETH_FCS_LEN + MVNETA_MH_SIZE);
+diff --git a/drivers/of/address.c b/drivers/of/address.c
+index 3c4b2af..7e94b02 100644
+--- a/drivers/of/address.c
++++ b/drivers/of/address.c
+@@ -481,7 +481,7 @@ static u64 __of_translate_address(struct device_node *dev,
+ 	int na, ns, pna, pns;
+ 	u64 result = OF_BAD_ADDR;
+ 
+-	pr_debug("OF: ** translation for device %s **\n", dev->full_name);
++	pr_debug("OF: ** translation for device %s **\n", of_node_full_name(dev));
+ 
+ 	/* Increase refcount at current level */
+ 	of_node_get(dev);
+@@ -496,13 +496,13 @@ static u64 __of_translate_address(struct device_node *dev,
+ 	bus->count_cells(dev, &na, &ns);
+ 	if (!OF_CHECK_COUNTS(na, ns)) {
+ 		printk(KERN_ERR "prom_parse: Bad cell count for %s\n",
+-		       dev->full_name);
++		       of_node_full_name(dev));
+ 		goto bail;
+ 	}
+ 	memcpy(addr, in_addr, na * 4);
+ 
+ 	pr_debug("OF: bus is %s (na=%d, ns=%d) on %s\n",
+-	    bus->name, na, ns, parent->full_name);
++	    bus->name, na, ns, of_node_full_name(parent));
+ 	of_dump_addr("OF: translating address:", addr, na);
+ 
+ 	/* Translate */
+@@ -524,12 +524,12 @@ static u64 __of_translate_address(struct device_node *dev,
+ 		pbus->count_cells(dev, &pna, &pns);
+ 		if (!OF_CHECK_COUNTS(pna, pns)) {
+ 			printk(KERN_ERR "prom_parse: Bad cell count for %s\n",
+-			       dev->full_name);
++			       of_node_full_name(dev));
+ 			break;
+ 		}
+ 
+ 		pr_debug("OF: parent bus is %s (na=%d, ns=%d) on %s\n",
+-		    pbus->name, pna, pns, parent->full_name);
++		    pbus->name, pna, pns, of_node_full_name(parent));
+ 
+ 		/* Apply bus translation */
+ 		if (of_translate_one(dev, bus, pbus, addr, na, ns, pna, rprop))
+diff --git a/drivers/of/base.c b/drivers/of/base.c
+index 1d10b4e..dcc91c8 100644
+--- a/drivers/of/base.c
++++ b/drivers/of/base.c
+@@ -1136,6 +1136,15 @@ EXPORT_SYMBOL(of_parse_phandle);
+  * To get a device_node of the `node2' node you may call this:
+  * of_parse_phandle_with_args(node3, "list", "#list-cells", 1, &args);
+  */
++void of_print_phandle_args(const char *msg, const struct of_phandle_args *args)
++{
++	int i;
++	printk("%s %s", msg, of_node_full_name(args->np));
++	for (i = 0; i < args->args_count; i++)
++		printk(i ? ",%08x" : ":%08x", args->args[i]);
++	printk("\n");
++}
++
+ static int __of_parse_phandle_with_args(const struct device_node *np,
+ 					const char *list_name,
+ 					const char *cells_name, int index,
+diff --git a/drivers/of/irq.c b/drivers/of/irq.c
+index a3c1c5a..786b0b4 100644
+--- a/drivers/of/irq.c
++++ b/drivers/of/irq.c
+@@ -28,21 +28,20 @@
+ 
+ /**
+  * irq_of_parse_and_map - Parse and map an interrupt into linux virq space
+- * @device: Device node of the device whose interrupt is to be mapped
++ * @dev: Device node of the device whose interrupt is to be mapped
+  * @index: Index of the interrupt to map
+  *
+- * This function is a wrapper that chains of_irq_map_one() and
++ * This function is a wrapper that chains of_irq_parse_one() and
+  * irq_create_of_mapping() to make things easier to callers
+  */
+ unsigned int irq_of_parse_and_map(struct device_node *dev, int index)
+ {
+-	struct of_irq oirq;
++	struct of_phandle_args oirq;
+ 
+-	if (of_irq_map_one(dev, index, &oirq))
++	if (of_irq_parse_one(dev, index, &oirq))
+ 		return 0;
+ 
+-	return irq_create_of_mapping(oirq.controller, oirq.specifier,
+-				     oirq.size);
++	return irq_create_of_mapping(&oirq);
+ }
+ EXPORT_SYMBOL_GPL(irq_of_parse_and_map);
+ 
+@@ -79,33 +78,34 @@ struct device_node *of_irq_find_parent(struct device_node *child)
+ }
+ 
+ /**
+- * of_irq_map_raw - Low level interrupt tree parsing
++ * of_irq_parse_raw - Low level interrupt tree parsing
+  * @parent:	the device interrupt parent
+- * @intspec:	interrupt specifier ("interrupts" property of the device)
+- * @ointsize:   size of the passed in interrupt specifier
+- * @addr:	address specifier (start of "reg" property of the device)
+- * @out_irq:	structure of_irq filled by this function
++ * @addr:	address specifier (start of "reg" property of the device) in be32 format
++ * @out_irq:	structure of_irq updated by this function
+  *
+  * Returns 0 on success and a negative number on error
+  *
+  * This function is a low-level interrupt tree walking function. It
+  * can be used to do a partial walk with synthetized reg and interrupts
+  * properties, for example when resolving PCI interrupts when no device
+- * node exist for the parent.
++ * node exist for the parent. It takes an interrupt specifier structure as
++ * input, walks the tree looking for any interrupt-map properties, translates
++ * the specifier for each map, and then returns the translated map.
+  */
+-int of_irq_map_raw(struct device_node *parent, const __be32 *intspec,
+-		   u32 ointsize, const __be32 *addr, struct of_irq *out_irq)
++int of_irq_parse_raw(const __be32 *addr, struct of_phandle_args *out_irq)
+ {
+ 	struct device_node *ipar, *tnode, *old = NULL, *newpar = NULL;
+-	const __be32 *tmp, *imap, *imask;
++	__be32 initial_match_array[MAX_PHANDLE_ARGS];
++	const __be32 *match_array = initial_match_array;
++	const __be32 *tmp, *imap, *imask, dummy_imask[] = { [0 ... MAX_PHANDLE_ARGS] = ~0 };
+ 	u32 intsize = 1, addrsize, newintsize = 0, newaddrsize = 0;
+ 	int imaplen, match, i;
+ 
+-	pr_debug("of_irq_map_raw: par=%s,intspec=[0x%08x 0x%08x...],ointsize=%d\n",
+-		 parent->full_name, be32_to_cpup(intspec),
+-		 be32_to_cpup(intspec + 1), ointsize);
++#ifdef DEBUG
++	of_print_phandle_args("of_irq_parse_raw: ", out_irq);
++#endif
+ 
+-	ipar = of_node_get(parent);
++	ipar = of_node_get(out_irq->np);
+ 
+ 	/* First get the #interrupt-cells property of the current cursor
+ 	 * that tells us how to interpret the passed-in intspec. If there
+@@ -126,9 +126,9 @@ int of_irq_map_raw(struct device_node *parent, const __be32 *intspec,
+ 		goto fail;
+ 	}
+ 
+-	pr_debug("of_irq_map_raw: ipar=%s, size=%d\n", ipar->full_name, intsize);
++	pr_debug("of_irq_parse_raw: ipar=%s, size=%d\n", of_node_full_name(ipar), intsize);
+ 
+-	if (ointsize != intsize)
++	if (out_irq->args_count != intsize)
+ 		return -EINVAL;
+ 
+ 	/* Look for this #address-cells. We have to implement the old linux
+@@ -147,6 +147,16 @@ int of_irq_map_raw(struct device_node *parent, const __be32 *intspec,
+ 
+ 	pr_debug(" -> addrsize=%d\n", addrsize);
+ 
++	/* Range check so that the temporary buffer doesn't overflow */
++	if (WARN_ON(addrsize + intsize > MAX_PHANDLE_ARGS))
++		goto fail;
++
++	/* Precalculate the match array - this simplifies match loop */
++	for (i = 0; i < addrsize; i++)
++		initial_match_array[i] = addr ? addr[i] : 0;
++	for (i = 0; i < intsize; i++)
++		initial_match_array[addrsize + i] = cpu_to_be32(out_irq->args[i]);
++
+ 	/* Now start the actual "proper" walk of the interrupt tree */
+ 	while (ipar != NULL) {
+ 		/* Now check if cursor is an interrupt-controller and if it is
+@@ -155,15 +165,19 @@ int of_irq_map_raw(struct device_node *parent, const __be32 *intspec,
+ 		if (of_get_property(ipar, "interrupt-controller", NULL) !=
+ 				NULL) {
+ 			pr_debug(" -> got it !\n");
+-			for (i = 0; i < intsize; i++)
+-				out_irq->specifier[i] =
+-						of_read_number(intspec +i, 1);
+-			out_irq->size = intsize;
+-			out_irq->controller = ipar;
+ 			of_node_put(old);
+ 			return 0;
+ 		}
+ 
++		/*
++		 * interrupt-map parsing does not work without a reg
++		 * property when #address-cells != 0
++		 */
++		if (addrsize && !addr) {
++			pr_debug(" -> no reg passed in when needed !\n");
++			goto fail;
++		}
++
+ 		/* Now look for an interrupt-map */
+ 		imap = of_get_property(ipar, "interrupt-map", &imaplen);
+ 		/* No interrupt map, check for an interrupt parent */
+@@ -176,34 +190,16 @@ int of_irq_map_raw(struct device_node *parent, const __be32 *intspec,
+ 
+ 		/* Look for a mask */
+ 		imask = of_get_property(ipar, "interrupt-map-mask", NULL);
+-
+-		/* If we were passed no "reg" property and we attempt to parse
+-		 * an interrupt-map, then #address-cells must be 0.
+-		 * Fail if it's not.
+-		 */
+-		if (addr == NULL && addrsize != 0) {
+-			pr_debug(" -> no reg passed in when needed !\n");
+-			goto fail;
+-		}
++		if (!imask)
++			imask = dummy_imask;
+ 
+ 		/* Parse interrupt-map */
+ 		match = 0;
+ 		while (imaplen > (addrsize + intsize + 1) && !match) {
+ 			/* Compare specifiers */
+ 			match = 1;
+-			for (i = 0; i < addrsize && match; ++i) {
+-				__be32 mask = imask ? imask[i]
+-						    : cpu_to_be32(0xffffffffu);
+-				match = ((addr[i] ^ imap[i]) & mask) == 0;
+-			}
+-			for (; i < (addrsize + intsize) && match; ++i) {
+-				__be32 mask = imask ? imask[i]
+-						    : cpu_to_be32(0xffffffffu);
+-				match =
+-				   ((intspec[i-addrsize] ^ imap[i]) & mask) == 0;
+-			}
+-			imap += addrsize + intsize;
+-			imaplen -= addrsize + intsize;
++			for (i = 0; i < (addrsize + intsize); i++, imaplen--)
++				match &= !((match_array[i] ^ *imap++) & imask[i]);
+ 
+ 			pr_debug(" -> match=%d (imaplen=%d)\n", match, imaplen);
+ 
+@@ -237,6 +233,8 @@ int of_irq_map_raw(struct device_node *parent, const __be32 *intspec,
+ 			    newintsize, newaddrsize);
+ 
+ 			/* Check for malformed properties */
++			if (WARN_ON(newaddrsize + newintsize > MAX_PHANDLE_ARGS))
++				goto fail;
+ 			if (imaplen < (newaddrsize + newintsize))
+ 				goto fail;
+ 
+@@ -248,12 +246,18 @@ int of_irq_map_raw(struct device_node *parent, const __be32 *intspec,
+ 		if (!match)
+ 			goto fail;
+ 
+-		of_node_put(old);
+-		old = of_node_get(newpar);
++		/*
++		 * Successfully parsed an interrrupt-map translation; copy new
++		 * interrupt specifier into the out_irq structure
++		 */
++		of_node_put(out_irq->np);
++		out_irq->np = of_node_get(newpar);
++
++		match_array = imap - newaddrsize - newintsize;
++		for (i = 0; i < newintsize; i++)
++			out_irq->args[i] = be32_to_cpup(imap - newintsize + i);
++		out_irq->args_count = intsize = newintsize;
+ 		addrsize = newaddrsize;
+-		intsize = newintsize;
+-		intspec = imap - intsize;
+-		addr = intspec - addrsize;
+ 
+ 	skiplevel:
+ 		/* Iterate again with new parent */
+@@ -264,46 +268,53 @@ int of_irq_map_raw(struct device_node *parent, const __be32 *intspec,
+ 	}
+  fail:
+ 	of_node_put(ipar);
+-	of_node_put(old);
++	of_node_put(out_irq->np);
+ 	of_node_put(newpar);
+ 
+ 	return -EINVAL;
+ }
+-EXPORT_SYMBOL_GPL(of_irq_map_raw);
++EXPORT_SYMBOL_GPL(of_irq_parse_raw);
+ 
+ /**
+- * of_irq_map_one - Resolve an interrupt for a device
++ * of_irq_parse_one - Resolve an interrupt for a device
+  * @device: the device whose interrupt is to be resolved
+  * @index: index of the interrupt to resolve
+  * @out_irq: structure of_irq filled by this function
+  *
+- * This function resolves an interrupt, walking the tree, for a given
+- * device-tree node. It's the high level pendant to of_irq_map_raw().
++ * This function resolves an interrupt for a node by walking the interrupt tree,
++ * finding which interrupt controller node it is attached to, and returning the
++ * interrupt specifier that can be used to retrieve a Linux IRQ number.
+  */
+-int of_irq_map_one(struct device_node *device, int index, struct of_irq *out_irq)
++int of_irq_parse_one(struct device_node *device, int index, struct of_phandle_args *out_irq)
+ {
+ 	struct device_node *p;
+ 	const __be32 *intspec, *tmp, *addr;
+ 	u32 intsize, intlen;
+-	int res = -EINVAL;
++	int i, res = -EINVAL;
+ 
+-	pr_debug("of_irq_map_one: dev=%s, index=%d\n", device->full_name, index);
++	pr_debug("of_irq_parse_one: dev=%s, index=%d\n", of_node_full_name(device), index);
+ 
+ 	/* OldWorld mac stuff is "special", handle out of line */
+ 	if (of_irq_workarounds & OF_IMAP_OLDWORLD_MAC)
+-		return of_irq_map_oldworld(device, index, out_irq);
++		return of_irq_parse_oldworld(device, index, out_irq);
++
++	/* Get the reg property (if any) */
++	addr = of_get_property(device, "reg", NULL);
+ 
+ 	/* Get the interrupts property */
+ 	intspec = of_get_property(device, "interrupts", &intlen);
+-	if (intspec == NULL)
+-		return -EINVAL;
++	if (intspec == NULL) {
++		/* Try the new-style interrupts-extended */
++		res = of_parse_phandle_with_args(device, "interrupts-extended",
++						"#interrupt-cells", index, out_irq);
++		if (res)
++			return -EINVAL;
++		return of_irq_parse_raw(addr, out_irq);
++	}
+ 	intlen /= sizeof(*intspec);
+ 
+ 	pr_debug(" intspec=%d intlen=%d\n", be32_to_cpup(intspec), intlen);
+ 
+-	/* Get the reg property (if any) */
+-	addr = of_get_property(device, "reg", NULL);
+-
+ 	/* Look for the interrupt parent. */
+ 	p = of_irq_find_parent(device);
+ 	if (p == NULL)
+@@ -321,14 +332,20 @@ int of_irq_map_one(struct device_node *device, int index, struct of_irq *out_irq
+ 	if ((index + 1) * intsize > intlen)
+ 		goto out;
+ 
+-	/* Get new specifier and map it */
+-	res = of_irq_map_raw(p, intspec + index * intsize, intsize,
+-			     addr, out_irq);
++	/* Copy intspec into irq structure */
++	intspec += index * intsize;
++	out_irq->np = p;
++	out_irq->args_count = intsize;
++	for (i = 0; i < intsize; i++)
++		out_irq->args[i] = be32_to_cpup(intspec++);
++
++	/* Check if there are any interrupt-map translations to process */
++	res = of_irq_parse_raw(addr, out_irq);
+  out:
+ 	of_node_put(p);
+ 	return res;
+ }
+-EXPORT_SYMBOL_GPL(of_irq_map_one);
++EXPORT_SYMBOL_GPL(of_irq_parse_one);
+ 
+ /**
+  * of_irq_to_resource - Decode a node's IRQ and return it as a resource
+@@ -345,6 +362,7 @@ int of_irq_to_resource(struct device_node *dev, int index, struct resource *r)
+ 	if (r && irq) {
+ 		const char *name = NULL;
+ 
++		memset(r, 0, sizeof(*r));
+ 		/*
+ 		 * Get optional "interrupts-names" property to add a name
+ 		 * to the resource.
+@@ -353,8 +371,8 @@ int of_irq_to_resource(struct device_node *dev, int index, struct resource *r)
+ 					      &name);
+ 
+ 		r->start = r->end = irq;
+-		r->flags = IORESOURCE_IRQ;
+-		r->name = name ? name : dev->full_name;
++		r->flags = IORESOURCE_IRQ | irqd_get_trigger_type(irq_get_irq_data(irq));
++		r->name = name ? name : of_node_full_name(dev);
+ 	}
+ 
+ 	return irq;
+@@ -367,9 +385,10 @@ EXPORT_SYMBOL_GPL(of_irq_to_resource);
+  */
+ int of_irq_count(struct device_node *dev)
+ {
++	struct of_phandle_args irq;
+ 	int nr = 0;
+ 
+-	while (of_irq_to_resource(dev, nr, NULL))
++	while (of_irq_parse_one(dev, nr, &irq) == 0)
+ 		nr++;
+ 
+ 	return nr;
+@@ -482,8 +501,9 @@ void __init of_irq_init(const struct of_device_id *matches)
+ 		}
+ 
+ 		/* Get the next pending parent that might have children */
+-		desc = list_first_entry(&intc_parent_list, typeof(*desc), list);
+-		if (list_empty(&intc_parent_list) || !desc) {
++		desc = list_first_entry_or_null(&intc_parent_list,
++						typeof(*desc), list);
++		if (!desc) {
+ 			pr_err("of_irq_init: children remain, but no parents\n");
+ 			break;
+ 		}
+diff --git a/drivers/of/of_pci_irq.c b/drivers/of/of_pci_irq.c
+index 6770538..303afeb 100644
+--- a/drivers/of/of_pci_irq.c
++++ b/drivers/of/of_pci_irq.c
+@@ -5,7 +5,7 @@
+ #include <asm/prom.h>
+ 
+ /**
+- * of_irq_map_pci - Resolve the interrupt for a PCI device
++ * of_irq_parse_pci - Resolve the interrupt for a PCI device
+  * @pdev:       the device whose interrupt is to be resolved
+  * @out_irq:    structure of_irq filled by this function
+  *
+@@ -15,7 +15,7 @@
+  * PCI tree until an device-node is found, at which point it will finish
+  * resolving using the OF tree walking.
+  */
+-int of_irq_map_pci(const struct pci_dev *pdev, struct of_irq *out_irq)
++int of_irq_parse_pci(const struct pci_dev *pdev, struct of_phandle_args *out_irq)
+ {
+ 	struct device_node *dn, *ppnode;
+ 	struct pci_dev *ppdev;
+@@ -30,7 +30,7 @@ int of_irq_map_pci(const struct pci_dev *pdev, struct of_irq *out_irq)
+ 	 */
+ 	dn = pci_device_to_OF_node(pdev);
+ 	if (dn) {
+-		rc = of_irq_map_one(dn, 0, out_irq);
++		rc = of_irq_parse_one(dn, 0, out_irq);
+ 		if (!rc)
+ 			return rc;
+ 	}
+@@ -85,9 +85,12 @@ int of_irq_map_pci(const struct pci_dev *pdev, struct of_irq *out_irq)
+ 		pdev = ppdev;
+ 	}
+ 
++	out_irq->np = ppnode;
++	out_irq->args_count = 1;
++	out_irq->args[0] = lspec;
+ 	lspec_be = cpu_to_be32(lspec);
+ 	laddr[0] = cpu_to_be32((pdev->bus->number << 16) | (pdev->devfn << 8));
+-	laddr[1]  = laddr[2] = cpu_to_be32(0);
+-	return of_irq_map_raw(ppnode, &lspec_be, 1, laddr, out_irq);
++	laddr[1] = laddr[2] = cpu_to_be32(0);
++	return of_irq_parse_raw(laddr, out_irq);
+ }
+-EXPORT_SYMBOL_GPL(of_irq_map_pci);
++EXPORT_SYMBOL_GPL(of_irq_parse_pci);
+diff --git a/drivers/of/selftest.c b/drivers/of/selftest.c
+index 0eb5c38..e21012b 100644
+--- a/drivers/of/selftest.c
++++ b/drivers/of/selftest.c
+@@ -9,18 +9,24 @@
+ #include <linux/errno.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
++#include <linux/of_irq.h>
+ #include <linux/list.h>
+ #include <linux/mutex.h>
+ #include <linux/slab.h>
+ #include <linux/device.h>
+ 
+-static bool selftest_passed = true;
++static struct selftest_results {
++	int passed;
++	int failed;
++} selftest_results;
++
+ #define selftest(result, fmt, ...) { \
+ 	if (!(result)) { \
+-		pr_err("FAIL %s:%i " fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
+-		selftest_passed = false; \
++		selftest_results.failed++; \
++		pr_err("FAIL %s():%i " fmt, __func__, __LINE__, ##__VA_ARGS__); \
+ 	} else { \
+-		pr_info("pass %s:%i\n", __FILE__, __LINE__); \
++		selftest_results.passed++; \
++		pr_debug("pass %s():%i\n", __func__, __LINE__); \
+ 	} \
+ }
+ 
+@@ -131,7 +137,6 @@ static void __init of_selftest_property_match_string(void)
+ 	struct device_node *np;
+ 	int rc;
+ 
+-	pr_info("start\n");
+ 	np = of_find_node_by_path("/testcase-data/phandle-tests/consumer-a");
+ 	if (!np) {
+ 		pr_err("No testcase data in device tree\n");
+@@ -154,6 +159,147 @@ static void __init of_selftest_property_match_string(void)
+ 	selftest(rc == -EILSEQ, "unterminated string; rc=%i", rc);
+ }
+ 
++static void __init of_selftest_parse_interrupts(void)
++{
++	struct device_node *np;
++	struct of_phandle_args args;
++	int i, rc;
++
++	np = of_find_node_by_path("/testcase-data/interrupts/interrupts0");
++	if (!np) {
++		pr_err("missing testcase data\n");
++		return;
++	}
++
++	for (i = 0; i < 4; i++) {
++		bool passed = true;
++		args.args_count = 0;
++		rc = of_irq_parse_one(np, i, &args);
++
++		passed &= !rc;
++		passed &= (args.args_count == 1);
++		passed &= (args.args[0] == (i + 1));
++
++		selftest(passed, "index %i - data error on node %s rc=%i\n",
++			 i, args.np->full_name, rc);
++	}
++	of_node_put(np);
++
++	np = of_find_node_by_path("/testcase-data/interrupts/interrupts1");
++	if (!np) {
++		pr_err("missing testcase data\n");
++		return;
++	}
++
++	for (i = 0; i < 4; i++) {
++		bool passed = true;
++		args.args_count = 0;
++		rc = of_irq_parse_one(np, i, &args);
++
++		/* Test the values from tests-phandle.dtsi */
++		switch (i) {
++		case 0:
++			passed &= !rc;
++			passed &= (args.args_count == 1);
++			passed &= (args.args[0] == 9);
++			break;
++		case 1:
++			passed &= !rc;
++			passed &= (args.args_count == 3);
++			passed &= (args.args[0] == 10);
++			passed &= (args.args[1] == 11);
++			passed &= (args.args[2] == 12);
++			break;
++		case 2:
++			passed &= !rc;
++			passed &= (args.args_count == 2);
++			passed &= (args.args[0] == 13);
++			passed &= (args.args[1] == 14);
++			break;
++		case 3:
++			passed &= !rc;
++			passed &= (args.args_count == 2);
++			passed &= (args.args[0] == 15);
++			passed &= (args.args[1] == 16);
++			break;
++		default:
++			passed = false;
++		}
++		selftest(passed, "index %i - data error on node %s rc=%i\n",
++			 i, args.np->full_name, rc);
++	}
++	of_node_put(np);
++}
++
++static void __init of_selftest_parse_interrupts_extended(void)
++{
++	struct device_node *np;
++	struct of_phandle_args args;
++	int i, rc;
++
++	np = of_find_node_by_path("/testcase-data/interrupts/interrupts-extended0");
++	if (!np) {
++		pr_err("missing testcase data\n");
++		return;
++	}
++
++	for (i = 0; i < 7; i++) {
++		bool passed = true;
++		rc = of_irq_parse_one(np, i, &args);
++
++		/* Test the values from tests-phandle.dtsi */
++		switch (i) {
++		case 0:
++			passed &= !rc;
++			passed &= (args.args_count == 1);
++			passed &= (args.args[0] == 1);
++			break;
++		case 1:
++			passed &= !rc;
++			passed &= (args.args_count == 3);
++			passed &= (args.args[0] == 2);
++			passed &= (args.args[1] == 3);
++			passed &= (args.args[2] == 4);
++			break;
++		case 2:
++			passed &= !rc;
++			passed &= (args.args_count == 2);
++			passed &= (args.args[0] == 5);
++			passed &= (args.args[1] == 6);
++			break;
++		case 3:
++			passed &= !rc;
++			passed &= (args.args_count == 1);
++			passed &= (args.args[0] == 9);
++			break;
++		case 4:
++			passed &= !rc;
++			passed &= (args.args_count == 3);
++			passed &= (args.args[0] == 10);
++			passed &= (args.args[1] == 11);
++			passed &= (args.args[2] == 12);
++			break;
++		case 5:
++			passed &= !rc;
++			passed &= (args.args_count == 2);
++			passed &= (args.args[0] == 13);
++			passed &= (args.args[1] == 14);
++			break;
++		case 6:
++			passed &= !rc;
++			passed &= (args.args_count == 1);
++			passed &= (args.args[0] == 15);
++			break;
++		default:
++			passed = false;
++		}
++
++		selftest(passed, "index %i - data error on node %s rc=%i\n",
++			 i, args.np->full_name, rc);
++	}
++	of_node_put(np);
++}
++
+ static int __init of_selftest(void)
+ {
+ 	struct device_node *np;
+@@ -168,7 +314,10 @@ static int __init of_selftest(void)
+ 	pr_info("start of selftest - you will see error messages\n");
+ 	of_selftest_parse_phandle_with_args();
+ 	of_selftest_property_match_string();
+-	pr_info("end of selftest - %s\n", selftest_passed ? "PASS" : "FAIL");
++	of_selftest_parse_interrupts();
++	of_selftest_parse_interrupts_extended();
++	pr_info("end of selftest - %i passed, %i failed\n",
++		selftest_results.passed, selftest_results.failed);
+ 	return 0;
+ }
+ late_initcall(of_selftest);
+diff --git a/drivers/pci/host/pci-mvebu.c b/drivers/pci/host/pci-mvebu.c
+index e40035b..59ba480 100644
+--- a/drivers/pci/host/pci-mvebu.c
++++ b/drivers/pci/host/pci-mvebu.c
+@@ -649,15 +649,14 @@ static int __init mvebu_pcie_setup(int nr, struct pci_sys_data *sys)
+ 
+ static int __init mvebu_pcie_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
+ {
+-	struct of_irq oirq;
++	struct of_phandle_args oirq;
+ 	int ret;
+ 
+-	ret = of_irq_map_pci(dev, &oirq);
++	ret = of_irq_parse_pci(dev, &oirq);
+ 	if (ret)
+ 		return ret;
+ 
+-	return irq_create_of_mapping(oirq.controller, oirq.specifier,
+-				     oirq.size);
++	return irq_create_of_mapping(&oirq);
+ }
+ 
+ static struct pci_bus *mvebu_pcie_scan_bus(int nr, struct pci_sys_data *sys)
+@@ -737,9 +736,9 @@ mvebu_pcie_map_registers(struct platform_device *pdev,
+ 
+ 	ret = of_address_to_resource(np, 0, &regs);
+ 	if (ret)
+-		return NULL;
++		return ERR_PTR(ret);
+ 
+-	return devm_request_and_ioremap(&pdev->dev, &regs);
++	return devm_ioremap_resource(&pdev->dev, &regs);
+ }
+ 
+ static void __init mvebu_pcie_msi_enable(struct mvebu_pcie *pcie)
+@@ -842,13 +841,14 @@ static int __init mvebu_pcie_probe(struct platform_device *pdev)
+ 		return ret;
+ 	}
+ 
++	i = 0;
+ 	for_each_child_of_node(pdev->dev.of_node, child) {
+ 		if (!of_device_is_available(child))
+ 			continue;
+-		pcie->nports++;
++		i++;
+ 	}
+ 
+-	pcie->ports = devm_kzalloc(&pdev->dev, pcie->nports *
++	pcie->ports = devm_kzalloc(&pdev->dev, i *
+ 				   sizeof(struct mvebu_pcie_port),
+ 				   GFP_KERNEL);
+ 	if (!pcie->ports)
+@@ -897,10 +897,23 @@ static int __init mvebu_pcie_probe(struct platform_device *pdev)
+ 			continue;
+ 		}
+ 
++		port->clk = of_clk_get_by_name(child, NULL);
++		if (IS_ERR(port->clk)) {
++			dev_err(&pdev->dev, "PCIe%d.%d: cannot get clock\n",
++			       port->port, port->lane);
++			continue;
++		}
++
++		ret = clk_prepare_enable(port->clk);
++		if (ret)
++			continue;
++
+ 		port->base = mvebu_pcie_map_registers(pdev, child, port);
+-		if (!port->base) {
++		if (IS_ERR(port->base)) {
+ 			dev_err(&pdev->dev, "PCIe%d.%d: cannot map registers\n",
+ 				port->port, port->lane);
++			port->base = NULL;
++			clk_disable_unprepare(port->clk);
+ 			continue;
+ 		}
+ 
+@@ -916,27 +929,14 @@ static int __init mvebu_pcie_probe(struct platform_device *pdev)
+ 				 port->port, port->lane);
+ 		}
+ 
+-		port->clk = of_clk_get_by_name(child, NULL);
+-		if (!port->clk) {
+-			dev_err(&pdev->dev, "PCIe%d.%d: cannot get clock\n",
+-			       port->port, port->lane);
+-			iounmap(port->base);
+-			port->haslink = 0;
+-			continue;
+-		}
+-
+ 		port->dn = child;
+-
+-		clk_prepare_enable(port->clk);
+ 		spin_lock_init(&port->conf_lock);
+-
+ 		mvebu_sw_pci_bridge_init(port);
+-
+ 		i++;
+ 	}
+ 
++	pcie->nports = i;
+ 	mvebu_pcie_msi_enable(pcie);
+-
+ 	mvebu_pcie_enable(pcie);
+ 
+ 	return 0;
+diff --git a/drivers/usb/host/xhci-plat.c b/drivers/usb/host/xhci-plat.c
+index 6e70ce9..fbefdfb 100644
+--- a/drivers/usb/host/xhci-plat.c
++++ b/drivers/usb/host/xhci-plat.c
+@@ -14,6 +14,8 @@
+ #include <linux/platform_device.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
++#include <linux/of.h>
++#include <linux/dma-mapping.h>
+ 
+ #include "xhci.h"
+ 
+@@ -104,6 +106,15 @@ static int xhci_plat_probe(struct platform_device *pdev)
+ 	if (!res)
+ 		return -ENODEV;
+ 
++	/* Initialize dma_mask and coherent_dma_mask to 32-bits */
++	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
++	if (ret)
++		return ret;
++	if (!pdev->dev.dma_mask)
++		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
++	else
++		dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
++
+ 	hcd = usb_create_hcd(driver, &pdev->dev, dev_name(&pdev->dev));
+ 	if (!hcd)
+ 		return -ENOMEM;
+@@ -186,11 +197,20 @@ static int xhci_plat_remove(struct platform_device *dev)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_OF
++static const struct of_device_id usb_xhci_of_match[] = {
++	{ .compatible = "xhci-platform" },
++	{ },
++};
++MODULE_DEVICE_TABLE(of, usb_xhci_of_match);
++#endif
++
+ static struct platform_driver usb_xhci_driver = {
+ 	.probe	= xhci_plat_probe,
+ 	.remove	= xhci_plat_remove,
+ 	.driver	= {
+ 		.name = "xhci-hcd",
++		.of_match_table = of_match_ptr(usb_xhci_of_match),
+ 	},
+ };
+ MODULE_ALIAS("platform:xhci-hcd");
+diff --git a/drivers/usb/host/xhci.c b/drivers/usb/host/xhci.c
+index 4a5251f..ba8fd0c 100644
+--- a/drivers/usb/host/xhci.c
++++ b/drivers/usb/host/xhci.c
+@@ -4654,7 +4654,6 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
+ 	struct xhci_hcd		*xhci;
+ 	struct device		*dev = hcd->self.controller;
+ 	int			retval;
+-	u32			temp;
+ 
+ 	/* Accept arbitrarily long scatter-gather lists */
+ 	hcd->self.sg_tablesize = ~0;
+@@ -4682,14 +4681,6 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
+ 		/* xHCI private pointer was set in xhci_pci_probe for the second
+ 		 * registered roothub.
+ 		 */
+-		xhci = hcd_to_xhci(hcd);
+-		temp = xhci_readl(xhci, &xhci->cap_regs->hcc_params);
+-		if (HCC_64BIT_ADDR(temp)) {
+-			xhci_dbg(xhci, "Enabling 64-bit DMA addresses.\n");
+-			dma_set_mask(hcd->self.controller, DMA_BIT_MASK(64));
+-		} else {
+-			dma_set_mask(hcd->self.controller, DMA_BIT_MASK(32));
+-		}
+ 		return 0;
+ 	}
+ 
+@@ -4728,12 +4719,12 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
+ 		goto error;
+ 	xhci_dbg(xhci, "Reset complete\n");
+ 
+-	temp = xhci_readl(xhci, &xhci->cap_regs->hcc_params);
+-	if (HCC_64BIT_ADDR(temp)) {
++	/* Set dma_mask and coherent_dma_mask to 64-bits,
++	 * if xHC supports 64-bit addressing */
++	if (HCC_64BIT_ADDR(xhci->hcc_params) &&
++			!dma_set_mask(dev, DMA_BIT_MASK(64))) {
+ 		xhci_dbg(xhci, "Enabling 64-bit DMA addresses.\n");
+-		dma_set_mask(hcd->self.controller, DMA_BIT_MASK(64));
+-	} else {
+-		dma_set_mask(hcd->self.controller, DMA_BIT_MASK(32));
++		dma_set_coherent_mask(dev, DMA_BIT_MASK(64));
+ 	}
+ 
+ 	xhci_dbg(xhci, "Calling HCD init\n");
+diff --git a/include/linux/of.h b/include/linux/of.h
+index 1fd08ca..7d49c52 100644
+--- a/include/linux/of.h
++++ b/include/linux/of.h
+@@ -274,6 +274,7 @@ extern int of_n_size_cells(struct device_node *np);
+ extern const struct of_device_id *of_match_node(
+ 	const struct of_device_id *matches, const struct device_node *node);
+ extern int of_modalias_node(struct device_node *node, char *modalias, int len);
++extern void of_print_phandle_args(const char *msg, const struct of_phandle_args *args);
+ extern struct device_node *of_parse_phandle(const struct device_node *np,
+ 					    const char *phandle_name,
+ 					    int index);
+diff --git a/include/linux/of_irq.h b/include/linux/of_irq.h
+index 535cecf..c0d6dfe 100644
+--- a/include/linux/of_irq.h
++++ b/include/linux/of_irq.h
+@@ -1,8 +1,6 @@
+ #ifndef __OF_IRQ_H
+ #define __OF_IRQ_H
+ 
+-#if defined(CONFIG_OF)
+-struct of_irq;
+ #include <linux/types.h>
+ #include <linux/errno.h>
+ #include <linux/irq.h>
+@@ -10,30 +8,6 @@ struct of_irq;
+ #include <linux/ioport.h>
+ #include <linux/of.h>
+ 
+-/*
+- * irq_of_parse_and_map() is used by all OF enabled platforms; but SPARC
+- * implements it differently.  However, the prototype is the same for all,
+- * so declare it here regardless of the CONFIG_OF_IRQ setting.
+- */
+-extern unsigned int irq_of_parse_and_map(struct device_node *node, int index);
+-
+-#if defined(CONFIG_OF_IRQ)
+-/**
+- * of_irq - container for device_node/irq_specifier pair for an irq controller
+- * @controller: pointer to interrupt controller device tree node
+- * @size: size of interrupt specifier
+- * @specifier: array of cells @size long specifing the specific interrupt
+- *
+- * This structure is returned when an interrupt is mapped. The controller
+- * field needs to be put() after use
+- */
+-#define OF_MAX_IRQ_SPEC		4 /* We handle specifiers of at most 4 cells */
+-struct of_irq {
+-	struct device_node *controller; /* Interrupt controller node */
+-	u32 size; /* Specifier size */
+-	u32 specifier[OF_MAX_IRQ_SPEC]; /* Specifier copy */
+-};
+-
+ typedef int (*of_irq_init_cb_t)(struct device_node *, struct device_node *);
+ 
+ /*
+@@ -45,37 +19,38 @@ typedef int (*of_irq_init_cb_t)(struct device_node *, struct device_node *);
+ #if defined(CONFIG_PPC32) && defined(CONFIG_PPC_PMAC)
+ extern unsigned int of_irq_workarounds;
+ extern struct device_node *of_irq_dflt_pic;
+-extern int of_irq_map_oldworld(struct device_node *device, int index,
+-			       struct of_irq *out_irq);
++extern int of_irq_parse_oldworld(struct device_node *device, int index,
++			       struct of_phandle_args *out_irq);
+ #else /* CONFIG_PPC32 && CONFIG_PPC_PMAC */
+ #define of_irq_workarounds (0)
+ #define of_irq_dflt_pic (NULL)
+-static inline int of_irq_map_oldworld(struct device_node *device, int index,
+-				      struct of_irq *out_irq)
++static inline int of_irq_parse_oldworld(struct device_node *device, int index,
++				      struct of_phandle_args *out_irq)
+ {
+ 	return -EINVAL;
+ }
+ #endif /* CONFIG_PPC32 && CONFIG_PPC_PMAC */
+ 
+-
+-extern int of_irq_map_raw(struct device_node *parent, const __be32 *intspec,
+-			  u32 ointsize, const __be32 *addr,
+-			  struct of_irq *out_irq);
+-extern int of_irq_map_one(struct device_node *device, int index,
+-			  struct of_irq *out_irq);
+-extern unsigned int irq_create_of_mapping(struct device_node *controller,
+-					  const u32 *intspec,
+-					  unsigned int intsize);
++extern int of_irq_parse_raw(const __be32 *addr, struct of_phandle_args *out_irq);
++extern int of_irq_parse_one(struct device_node *device, int index,
++			  struct of_phandle_args *out_irq);
++extern unsigned int irq_create_of_mapping(struct of_phandle_args *irq_data);
+ extern int of_irq_to_resource(struct device_node *dev, int index,
+ 			      struct resource *r);
+ extern int of_irq_count(struct device_node *dev);
+ extern int of_irq_to_resource_table(struct device_node *dev,
+ 		struct resource *res, int nr_irqs);
+-extern struct device_node *of_irq_find_parent(struct device_node *child);
+ 
+ extern void of_irq_init(const struct of_device_id *matches);
+ 
+-#endif /* CONFIG_OF_IRQ */
++#if defined(CONFIG_OF)
++/*
++ * irq_of_parse_and_map() is used by all OF enabled platforms; but SPARC
++ * implements it differently.  However, the prototype is the same for all,
++ * so declare it here regardless of the CONFIG_OF_IRQ setting.
++ */
++extern unsigned int irq_of_parse_and_map(struct device_node *node, int index);
++extern struct device_node *of_irq_find_parent(struct device_node *child);
+ 
+ #else /* !CONFIG_OF */
+ static inline unsigned int irq_of_parse_and_map(struct device_node *dev,
+diff --git a/include/linux/of_pci.h b/include/linux/of_pci.h
+index fd9c408..f297237 100644
+--- a/include/linux/of_pci.h
++++ b/include/linux/of_pci.h
+@@ -5,8 +5,8 @@
+ #include <linux/msi.h>
+ 
+ struct pci_dev;
+-struct of_irq;
+-int of_irq_map_pci(const struct pci_dev *pdev, struct of_irq *out_irq);
++struct of_phandle_args;
++int of_irq_parse_pci(const struct pci_dev *pdev, struct of_phandle_args *out_irq);
+ 
+ struct device_node;
+ struct device_node *of_pci_find_child_device(struct device_node *parent,
+diff --git a/include/linux/platform_data/mtd-nand-pxa3xx.h b/include/linux/platform_data/mtd-nand-pxa3xx.h
+index ffb8019..a941471 100644
+--- a/include/linux/platform_data/mtd-nand-pxa3xx.h
++++ b/include/linux/platform_data/mtd-nand-pxa3xx.h
+@@ -55,6 +55,9 @@ struct pxa3xx_nand_platform_data {
+ 	/* indicate how many chip selects will be used */
+ 	int	num_cs;
+ 
++	/* use an flash-based bad block table */
++	bool	flash_bbt;
++
+ 	const struct mtd_partition		*parts[NUM_CHIP_SELECT];
+ 	unsigned int				nr_parts[NUM_CHIP_SELECT];
+ 
+diff --git a/kernel/irq/irqdomain.c b/kernel/irq/irqdomain.c
+index 54a4d52..920fe9f 100644
+--- a/kernel/irq/irqdomain.c
++++ b/kernel/irq/irqdomain.c
+@@ -655,15 +655,14 @@ int irq_create_strict_mappings(struct irq_domain *domain, unsigned int irq_base,
+ }
+ EXPORT_SYMBOL_GPL(irq_create_strict_mappings);
+ 
+-unsigned int irq_create_of_mapping(struct device_node *controller,
+-				   const u32 *intspec, unsigned int intsize)
++unsigned int irq_create_of_mapping(struct of_phandle_args *irq_data)
+ {
+ 	struct irq_domain *domain;
+ 	irq_hw_number_t hwirq;
+ 	unsigned int type = IRQ_TYPE_NONE;
+ 	unsigned int virq;
+ 
+-	domain = controller ? irq_find_host(controller) : irq_default_domain;
++	domain = irq_data->np ? irq_find_host(irq_data->np) : irq_default_domain;
+ 	if (!domain) {
+ #ifdef CONFIG_MIPS
+ 		/*
+@@ -677,17 +676,17 @@ unsigned int irq_create_of_mapping(struct device_node *controller,
+ 		if (intsize > 0)
+ 			return intspec[0];
+ #endif
+-		pr_warning("no irq domain found for %s !\n",
+-			   of_node_full_name(controller));
++		pr_warn("no irq domain found for %s !\n",
++			of_node_full_name(irq_data->np));
+ 		return 0;
+ 	}
+ 
+ 	/* If domain has no translation, then we assume interrupt line */
+ 	if (domain->ops->xlate == NULL)
+-		hwirq = intspec[0];
++		hwirq = irq_data->args[0];
+ 	else {
+-		if (domain->ops->xlate(domain, controller, intspec, intsize,
+-				     &hwirq, &type))
++		if (domain->ops->xlate(domain, irq_data->np, irq_data->args,
++					irq_data->args_count, &hwirq, &type))
+ 			return 0;
+ 	}
+ 
+-- 
+1.7.9.5
+
