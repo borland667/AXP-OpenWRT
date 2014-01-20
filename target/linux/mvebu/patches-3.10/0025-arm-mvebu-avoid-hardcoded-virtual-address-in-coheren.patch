@@ -19,7 +19,6 @@ available.
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Acked-by: Arnd Bergmann <arnd@arndb.de>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/mach-mvebu/armada-370-xp.c |  2 +-
  arch/arm/mach-mvebu/coherency.c     | 20 ++++++++++----------

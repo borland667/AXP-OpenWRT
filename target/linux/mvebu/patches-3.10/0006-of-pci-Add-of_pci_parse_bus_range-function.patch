@@ -7,7 +7,6 @@ This function can be used to parse a bus-range property as specified by
 device nodes representing PCI bridges.
 
 Signed-off-by: Thierry Reding <thierry.reding@avionic-design.de>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/of/of_pci.c    | 25 +++++++++++++++++++++++++
  include/linux/of_pci.h |  1 +

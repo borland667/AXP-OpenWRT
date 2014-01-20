@@ -8,7 +8,6 @@ relevant dependencies, we can mark the ARCH_MVEBU platform has
 MIGHT_HAVE_PCI, which allows to select the PCI bus support if needed.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/mach-mvebu/Kconfig | 2 ++
  1 file changed, 2 insertions(+)

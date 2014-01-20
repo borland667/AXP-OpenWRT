@@ -10,7 +10,6 @@ of the file.
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Tested-by: Andrew Lunn <andrew@lunn.ch>
 Tested-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/bus/mvebu-mbus.c | 10 +++-------
  1 file changed, 3 insertions(+), 7 deletions(-)

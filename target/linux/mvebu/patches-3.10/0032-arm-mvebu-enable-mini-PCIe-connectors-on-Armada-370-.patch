@@ -11,7 +11,6 @@ of those mini-PCIe connectors.
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Cc: Florian Fainelli <florian@openwrt.org>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/boot/dts/armada-370-rd.dts | 16 ++++++++++++++++
  1 file changed, 16 insertions(+)

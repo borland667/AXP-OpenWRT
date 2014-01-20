@@ -37,7 +37,6 @@ one real PCIe device connected.
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/pci/host/pci-mvebu.c | 31 ++++++++++++++++++++++++++++---
  1 file changed, 28 insertions(+), 3 deletions(-)

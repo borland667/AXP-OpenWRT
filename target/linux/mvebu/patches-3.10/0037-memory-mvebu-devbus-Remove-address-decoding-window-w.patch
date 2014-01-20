@@ -13,7 +13,6 @@ Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Tested-by: Andrew Lunn <andrew@lunn.ch>
 Tested-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/memory/mvebu-devbus.c | 64 ++-----------------------------------------
  1 file changed, 2 insertions(+), 62 deletions(-)

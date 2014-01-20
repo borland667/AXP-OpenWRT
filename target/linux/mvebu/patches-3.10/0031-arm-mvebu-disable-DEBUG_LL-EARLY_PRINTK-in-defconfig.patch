@@ -13,7 +13,6 @@ configuration depending on their platform.
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Acked-by: Arnd Bergmann <arnd@arndb.de>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/configs/mvebu_defconfig | 2 --
  1 file changed, 2 deletions(-)

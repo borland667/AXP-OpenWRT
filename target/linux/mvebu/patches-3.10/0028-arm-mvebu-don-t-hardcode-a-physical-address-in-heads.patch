@@ -14,7 +14,6 @@ Acked-by: Arnd Bergmann <arnd@arndb.de>
 Reviewed-by: Will Deacon <will.deacon@arm.com>
 Acked-by: Nicolas Pitre <nico@linaro.org>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/mach-mvebu/coherency.c | 12 ++++++++++++
  arch/arm/mach-mvebu/headsmp.S   | 16 ++++++++--------

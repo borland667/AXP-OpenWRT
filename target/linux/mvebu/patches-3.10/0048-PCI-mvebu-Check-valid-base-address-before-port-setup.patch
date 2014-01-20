@@ -12,7 +12,6 @@ cases.
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Tested-by: Andrew Lunn <andrew@lunn.ch>
 Tested-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/pci/host/pci-mvebu.c | 2 ++
  1 file changed, 2 insertions(+)

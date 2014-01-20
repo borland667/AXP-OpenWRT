@@ -12,7 +12,6 @@ Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Tested-by: Andrew Lunn <andrew@lunn.ch>
 Tested-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/bus/mvebu-mbus.c | 47 ++++++++++++++++++++++++++++++-----------------
  1 file changed, 30 insertions(+), 17 deletions(-)

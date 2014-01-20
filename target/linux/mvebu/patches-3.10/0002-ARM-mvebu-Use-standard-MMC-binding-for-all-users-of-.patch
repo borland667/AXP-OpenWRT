@@ -10,7 +10,6 @@ standard format.
 
 Signed-off-by: Simon Baatz <gmbnomis@gmail.com>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/boot/dts/armada-370-db.dts                 | 1 +
  arch/arm/boot/dts/armada-370-mirabox.dts            | 1 +

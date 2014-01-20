@@ -42,7 +42,6 @@ Tested-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Tested-by: Linus Walleij <linus.walleij@linaro.org>
 Tested-by: Jingoo Han <jg1.han@samsung.com>
 Acked-by: Grant Likely <grant.likely@secretlab.ca>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/of/address.c       | 67 ++++++++++++++++++++++++++++++++++++++++++++++
  include/linux/of_address.h | 48 +++++++++++++++++++++++++++++++++

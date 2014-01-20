@@ -10,7 +10,6 @@ that correspond to those wo USB slots.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/boot/dts/armada-xp-gp.dts | 10 ++++++++++
  1 file changed, 10 insertions(+)

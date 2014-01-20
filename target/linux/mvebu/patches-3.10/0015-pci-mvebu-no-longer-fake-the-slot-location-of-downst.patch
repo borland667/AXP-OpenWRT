@@ -35,7 +35,6 @@ on slot 0 to slot 1, which is nice.
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/pci/host/pci-mvebu.c | 19 +++++++++++++++----
  1 file changed, 15 insertions(+), 4 deletions(-)

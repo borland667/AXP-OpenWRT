@@ -14,7 +14,6 @@ Based on the intials patches from Zbigniew Bodek
 Signed-off-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
 Signed-off-by: Zbigniew Bodek <zbb@semihalf.com>
 Signed-off-by: Wolfram Sang <wsa@the-dreams.de>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  Documentation/devicetree/bindings/i2c/i2c-mv64xxx.txt | 6 +++++-
  drivers/i2c/busses/i2c-mv64xxx.c                      | 6 +++++-

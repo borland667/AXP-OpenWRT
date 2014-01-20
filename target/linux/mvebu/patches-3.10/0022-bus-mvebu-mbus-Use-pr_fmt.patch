@@ -10,7 +10,6 @@ the code a bit more readable.
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/bus/mvebu-mbus.c | 8 +++++---
  1 file changed, 5 insertions(+), 3 deletions(-)

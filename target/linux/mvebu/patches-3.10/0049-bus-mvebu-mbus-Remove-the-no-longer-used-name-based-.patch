@@ -10,7 +10,6 @@ converted to using the ID-based API, let's remove the former one.
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Tested-by: Andrew Lunn <andrew@lunn.ch>
 Tested-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/bus/mvebu-mbus.c | 38 --------------------------------------
  include/linux/mbus.h     |  5 -----

@@ -11,7 +11,6 @@ clocks on Armada XP.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Cc: Mike Turquette <mturquette@linaro.org>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/clk/mvebu/clk-gating-ctrl.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)

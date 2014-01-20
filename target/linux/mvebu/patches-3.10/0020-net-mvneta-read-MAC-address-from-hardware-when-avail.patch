@@ -25,7 +25,6 @@ Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Cc: Joe Perches <joe@perches.com>
 Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/net/ethernet/marvell/mvneta.c | 44 ++++++++++++++++++++++++++++-------
  1 file changed, 35 insertions(+), 9 deletions(-)

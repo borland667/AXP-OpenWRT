@@ -12,7 +12,6 @@ new bootloaders (that remap the internal registers at 0xf1000000).
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Acked-by: Arnd Bergmann <arnd@arndb.de>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/Kconfig.debug         | 30 ++++++++++++++++++++++++++++--
  arch/arm/include/debug/mvebu.S |  5 +++++

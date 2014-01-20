@@ -10,7 +10,6 @@ visible outside of this file, and we therefore mark them as static.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/mach-mvebu/armada-370-xp.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)

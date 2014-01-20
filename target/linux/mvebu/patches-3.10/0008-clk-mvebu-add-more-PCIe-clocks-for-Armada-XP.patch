@@ -14,7 +14,6 @@ clocks, in order to match the naming using the datasheets.
 
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Cc: Mike Turquette <mturquette@linaro.org>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/clk/mvebu/clk-gating-ctrl.c | 14 ++++++++++----
  1 file changed, 10 insertions(+), 4 deletions(-)

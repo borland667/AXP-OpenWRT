@@ -36,7 +36,6 @@ tries to access the unmapped registers:
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/boot/dts/armada-xp-mv78260.dtsi | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

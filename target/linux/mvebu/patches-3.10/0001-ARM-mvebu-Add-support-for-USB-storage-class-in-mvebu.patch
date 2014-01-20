@@ -12,7 +12,6 @@ found in Globalscale Mirabox board.
 
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/configs/mvebu_defconfig | 1 +
  1 file changed, 1 insertion(+)

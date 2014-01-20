@@ -46,7 +46,6 @@ This has two visible effects:
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Acked-by: Bjorn Helgaas <bhelgaas@google.com>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/pci/host/pci-mvebu.c | 5 +----
  1 file changed, 1 insertion(+), 4 deletions(-)

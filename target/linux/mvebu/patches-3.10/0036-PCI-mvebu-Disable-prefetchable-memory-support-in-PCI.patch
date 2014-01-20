@@ -35,7 +35,6 @@ e1000e PCIe NIC and a Marvell SATA PCIe card.
 Reported-by: Finn Hoffmann <finn@uni-bremen.de>
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  drivers/pci/host/pci-mvebu.c | 27 +--------------------------
  1 file changed, 1 insertion(+), 26 deletions(-)

@@ -9,7 +9,6 @@ These properties are not needed so it's safe to remove them.
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Acked-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/boot/dts/armada-370.dtsi | 4 ----
  1 file changed, 4 deletions(-)

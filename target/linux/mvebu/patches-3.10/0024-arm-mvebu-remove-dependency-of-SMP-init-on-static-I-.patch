@@ -25,7 +25,6 @@ longer used, so we remove it.
 Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Acked-by: Arnd Bergmann <arnd@arndb.de>
 Signed-off-by: Jason Cooper <jason@lakedaemon.net>
-Signed-off-by: Seif Mazareeb <seif.mazareeb@gmail.com>
 ---
  arch/arm/mach-mvebu/coherency.c | 12 ------------
  arch/arm/mach-mvebu/coherency.h |  4 ----
